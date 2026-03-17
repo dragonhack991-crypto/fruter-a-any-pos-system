@@ -170,6 +170,9 @@ export const getSalesByUser = () =>
 export const getLowStock = () =>
   apiClient.get('/analytics/low-stock');
 
+// ============ SETTINGS ============
 
+export const updateSettings = (data) =>
+  apiClient.put('/settings', data);
 
 export default apiClient;
