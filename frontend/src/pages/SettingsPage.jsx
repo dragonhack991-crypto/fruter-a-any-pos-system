@@ -1,352 +1,150 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Store, Lock, Bell, User, AlertCircle } from 'lucide-react';
-import { getSettings, updateProfile, changePassword, updateAppSettings, updateNotifications } from '../services/api';
-import '../styles/settings.css';
+import { useState, useEffect } from 'react';
+import { getSettings, updateSettings } from '../services/api.js';
+import { Save, X } from 'lucide-react';
 
 export default function SettingsPage() {
+  const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('');
-
-  const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
-    phone: ''
-  });
-
-  const [passwords, setPasswords] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-
-  const [appSettings, setAppSettings] = useState({
-    storeName: '',
-    currency: 'USD',
-    language: 'es',
-    theme: 'light'
-  });
-
-  const [notifications, setNotifications] = useState({
-    notificationsEnabled: true
-  });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    cargarConfiguracion();
+    loadSettings();
   }, []);
 
-  const cargarConfiguracion = async () => {
+  const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await getSettings();
-      if (response.data.success) {
-        setProfile({
-          fullName: response.data.data.user.fullName,
-          email: response.data.data.user.email,
-          phone: response.data.data.user.phone
-        });
-        setAppSettings(response.data.data.appSettings);
-      }
-    } catch (error) {
-      mostrarMensaje('Error cargando configuración', 'error');
+      const res = await getSettings();
+      setSettings(res.data.data || {});
+    } catch (err) {
+      setError('Error cargando configuración');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const mostrarMensaje = (msg, type) => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(''), 3000);
-  };
-
-  // Guardar perfil
-  const guardarPerfil = async () => {
+  const handleSave = async () => {
     try {
-      setSaving(true);
-      const response = await updateProfile(profile);
-      if (response.data.success) {
-        mostrarMensaje('✅ Perfil actualizado exitosamente', 'success');
-      }
-    } catch (error) {
-      mostrarMensaje('❌ Error al actualizar perfil', 'error');
-    } finally {
-      setSaving(false);
+      await updateSettings(settings);
+      setSuccess('✅ Configuración guardada correctamente');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Error guardando configuración');
     }
   };
 
-  // Cambiar contraseña
-  const cambiarContrasena = async () => {
-    if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
-      mostrarMensaje('❌ Todos los campos son requeridos', 'error');
-      return;
-    }
-
-    if (passwords.newPassword !== passwords.confirmPassword) {
-      mostrarMensaje('❌ Las contraseñas no coinciden', 'error');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const response = await changePassword({
-        currentPassword: passwords.currentPassword,
-        newPassword: passwords.newPassword,
-        confirmPassword: passwords.confirmPassword
-      });
-      if (response.data.success) {
-        mostrarMensaje('✅ Contraseña cambiada exitosamente', 'success');
-        setPasswords({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-      }
-    } catch (error) {
-      mostrarMensaje(error.response?.data?.error || '❌ Error al cambiar contraseña', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Guardar configuración de app
-  const guardarConfigApp = async () => {
-    try {
-      setSaving(true);
-      const response = await updateAppSettings(appSettings);
-      if (response.data.success) {
-        mostrarMensaje('✅ Configuración guardada exitosamente', 'success');
-      }
-    } catch (error) {
-      mostrarMensaje('❌ Error al guardar configuración', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Guardar notificaciones
-  const guardarNotificaciones = async () => {
-    try {
-      setSaving(true);
-      const response = await updateNotifications(notifications);
-      if (response.data.success) {
-        mostrarMensaje('✅ Notificaciones actualizadas', 'success');
-      }
-    } catch (error) {
-      mostrarMensaje('❌ Error al actualizar notificaciones', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="settings-page"><p>Cargando...</p></div>;
-  }
+  if (loading) return <div className="p-6 text-center">Cargando...</div>;
 
   return (
-    <div className="settings-page">
-      <div className="page-header">
-        <h1>⚙️ Configuración</h1>
-        <p>Personaliza tu perfil y tienda</p>
-      </div>
+    <div className="p-6">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">⚙️ Configuración</h1>
 
-      {message && (
-        <div className={`alert alert-${messageType}`}>
-          {message}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError('')}><X size={20} /></button>
         </div>
       )}
 
-      <div className="settings-container">
-        {/* Perfil del Usuario */}
-        <div className="settings-section">
-          <div className="section-header">
-            <User size={24} />
-            <h2>Mi Perfil</h2>
-          </div>
+      {success && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex justify-between">
+          <span>{success}</span>
+          <button onClick={() => setSuccess('')}><X size={20} /></button>
+        </div>
+      )}
 
-          <div className="form-group">
-            <label>Nombre Completo</label>
-            <input
-              type="text"
-              value={profile.fullName}
-              onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-              placeholder="Tu nombre completo"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              value={profile.email}
-              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              placeholder="Tu email"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Teléfono</label>
-            <input
-              type="tel"
-              value={profile.phone}
-              onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-              placeholder="Tu teléfono"
-            />
-          </div>
-
-          <button 
-            className="btn-primary"
-            onClick={guardarPerfil}
-            disabled={saving}
-          >
-            <Save size={20} />
-            {saving ? 'Guardando...' : 'Guardar Perfil'}
-          </button>
+      <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+        {/* Nombre de la Tienda */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Nombre de la Tienda
+          </label>
+          <input
+            type="text"
+            value={settings.storeName || ''}
+            onChange={(e) => setSettings({...settings, storeName: e.target.value})}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
         </div>
 
-        {/* Cambiar Contraseña */}
-        <div className="settings-section">
-          <div className="section-header">
-            <Lock size={24} />
-            <h2>Seguridad</h2>
-          </div>
-
-          <div className="form-group">
-            <label>Contraseña Actual</label>
+        {/* IVA / Tax Rate */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Tasa de IVA (%)
+          </label>
+          <div className="flex items-center gap-4">
             <input
-              type="password"
-              value={passwords.currentPassword}
-              onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })}
-              placeholder="Ingresa tu contraseña actual"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={settings.tax_rate || 12}
+              onChange={(e) => setSettings({...settings, tax_rate: parseFloat(e.target.value)})}
+              className="w-32 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             />
+            <span className="text-gray-600">Porcentaje</span>
           </div>
-
-          <div className="form-group">
-            <label>Nueva Contraseña</label>
-            <input
-              type="password"
-              value={passwords.newPassword}
-              onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
-              placeholder="Ingresa la nueva contraseña"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Confirmar Contraseña</label>
-            <input
-              type="password"
-              value={passwords.confirmPassword}
-              onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
-              placeholder="Confirma la nueva contraseña"
-            />
-          </div>
-
-          <button 
-            className="btn-primary"
-            onClick={cambiarContrasena}
-            disabled={saving}
-          >
-            <Lock size={20} />
-            {saving ? 'Cambiando...' : 'Cambiar Contraseña'}
-          </button>
-        </div>
-
-        {/* Configuración de Tienda */}
-        <div className="settings-section">
-          <div className="section-header">
-            <Store size={24} />
-            <h2>Configuración de Tienda</h2>
-          </div>
-
-          <div className="form-group">
-            <label>Nombre de la Tienda</label>
-            <input
-              type="text"
-              value={appSettings.storeName}
-              onChange={(e) => setAppSettings({ ...appSettings, storeName: e.target.value })}
-              placeholder="Nombre de tu tienda"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Moneda</label>
-            <select 
-              value={appSettings.currency}
-              onChange={(e) => setAppSettings({ ...appSettings, currency: e.target.value })}
-            >
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="MXN">MXN ($)</option>
-              <option value="COP">COP ($)</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Idioma</label>
-            <select 
-              value={appSettings.language}
-              onChange={(e) => setAppSettings({ ...appSettings, language: e.target.value })}
-            >
-              <option value="es">Español</option>
-              <option value="en">English</option>
-              <option value="pt">Português</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>Tema</label>
-            <select 
-              value={appSettings.theme}
-              onChange={(e) => setAppSettings({ ...appSettings, theme: e.target.value })}
-            >
-              <option value="light">Claro</option>
-              <option value="dark">Oscuro</option>
-              <option value="auto">Automático</option>
-            </select>
-          </div>
-
-          <button 
-            className="btn-primary"
-            onClick={guardarConfigApp}
-            disabled={saving}
-          >
-            <Save size={20} />
-            {saving ? 'Guardando...' : 'Guardar Configuración'}
-          </button>
-        </div>
-
-        {/* Notificaciones */}
-        <div className="settings-section">
-          <div className="section-header">
-            <Bell size={24} />
-            <h2>Notificaciones</h2>
-          </div>
-
-          <div className="form-group checkbox">
-            <input
-              type="checkbox"
-              id="notifications"
-              checked={notifications.notificationsEnabled}
-              onChange={(e) => setNotifications({ ...notifications, notificationsEnabled: e.target.checked })}
-            />
-            <label htmlFor="notifications">Habilitar notificaciones por email</label>
-          </div>
-
-          <p className="help-text">
-            <AlertCircle size={16} />
-            Recibirás notificaciones sobre cambios importantes en tu tienda
+          <p className="text-xs text-gray-500 mt-2">
+            Este IVA se aplicará automáticamente en todas las ventas
           </p>
-
-          <button 
-            className="btn-primary"
-            onClick={guardarNotificaciones}
-            disabled={saving}
-          >
-            <Save size={20} />
-            {saving ? 'Guardando...' : 'Guardar Preferencias'}
-          </button>
         </div>
+
+        {/* Moneda */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Moneda
+          </label>
+          <select
+            value={settings.currency || 'USD'}
+            onChange={(e) => setSettings({...settings, currency: e.target.value})}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="USD">USD ($)</option>
+            <option value="CRC">CRC (₡)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="MXN">MXN ($)</option>
+          </select>
+        </div>
+
+        {/* Idioma */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Idioma
+          </label>
+          <select
+            value={settings.language || 'es'}
+            onChange={(e) => setSettings({...settings, language: e.target.value})}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+
+        {/* Tema */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Tema
+          </label>
+          <select
+            value={settings.theme || 'light'}
+            onChange={(e) => setSettings({...settings, theme: e.target.value})}
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="light">Claro</option>
+            <option value="dark">Oscuro</option>
+          </select>
+        </div>
+
+        {/* Botón Guardar */}
+        <button
+          onClick={handleSave}
+          className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition"
+        >
+          <Save size={20} /> Guardar Configuración
+        </button>
       </div>
     </div>
   );
