@@ -170,4 +170,6 @@ export const getSalesByUser = () =>
 export const getLowStock = () =>
   apiClient.get('/analytics/low-stock');
 
+
+
 export default apiClient;
