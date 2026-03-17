@@ -8,5 +8,6 @@ router.get('/', authenticateToken, saleController.getSales);
 router.get('/today', authenticateToken, saleController.getTodaysSales);
 router.get('/:id', authenticateToken, saleController.getSaleById);
 router.post('/', authenticateToken, authorizeRole(['admin', 'manager', 'cashier']), saleController.createSale);
+router.put('/:id/cancel', authenticateToken, authorizeRole(['admin', 'manager']), saleController.cancelSale);
 
 export default router;
