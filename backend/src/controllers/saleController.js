@@ -1,19 +1,55 @@
 import pool from '../config/database.js';
 
+const VALID_PAYMENT_METHODS = ['cash', 'transfer', 'credit_card', 'debit_card', 'card', 'check'];
+
 export const createSale = async (req, res) => {
   let connection;
   try {
-    const { cash_box_id, items, payment_method = 'cash', discount = 0, notes = '' } = req.body;
+    const {
+      cash_box_id,
+      items,
+      payment_method = 'cash',
+      payment_details = null,
+      discount = 0,
+      notes = ''
+    } = req.body;
     const userId = req.user?.id;
 
     if (!cash_box_id || !items || items.length === 0) {
       return res.status(400).json({ success: false, error: 'Datos inválidos' });
     }
 
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      return res.status(400).json({ success: false, error: 'Método de pago inválido' });
+    }
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
     try {
+      // Validar disponibilidad de productos en inventario
+      for (const item of items) {
+        const [invRows] = await connection.query(
+          'SELECT quantity FROM inventory WHERE product_id = ?',
+          [item.product_id]
+        );
+        if (!invRows || invRows.length === 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            error: `Producto ID ${item.product_id} no encontrado en inventario`
+          });
+        }
+        const available = parseFloat(invRows[0].quantity) || 0;
+        if (available < item.quantity) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            error: `Stock insuficiente para producto ID ${item.product_id}. Disponible: ${available}`
+          });
+        }
+      }
+
       // Generar número de venta
       const [lastSale] = await connection.query(
         'SELECT MAX(CAST(SUBSTRING(sale_number, 4) AS UNSIGNED)) as last_number FROM sales'
@@ -23,17 +59,29 @@ export const createSale = async (req, res) => {
       // Calcular totales
       let subtotal = 0;
       for (const item of items) {
-        const total = item.quantity * item.unit_price;
-        subtotal += total;
+        subtotal += item.quantity * item.unit_price;
       }
+      const discountAmount = parseFloat(discount) || 0;
       const tax = subtotal * 0.12;
-      const totalAmount = subtotal + tax - discount;
+      const totalAmount = subtotal + tax - discountAmount;
 
-      // Crear venta
+      // Crear venta con detalles de pago
       const [saleResult] = await connection.query(
-        `INSERT INTO sales (sale_number, cash_box_id, user_id, subtotal, tax, discount, total_amount, payment_method, notes, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [saleNumber, cash_box_id, userId, subtotal, tax, discount, totalAmount, payment_method, notes, 'completed']
+        `INSERT INTO sales (sale_number, cash_box_id, user_id, subtotal, tax, discount, total_amount, payment_method, payment_details, notes, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          saleNumber,
+          cash_box_id,
+          userId,
+          subtotal,
+          tax,
+          discountAmount,
+          totalAmount,
+          payment_method,
+          payment_details ? JSON.stringify(payment_details) : null,
+          notes,
+          'completed'
+        ]
       );
 
       const saleId = saleResult.insertId;
@@ -41,7 +89,7 @@ export const createSale = async (req, res) => {
       // Crear detalles de venta y actualizar inventario
       for (const item of items) {
         const total = item.quantity * item.unit_price;
-        
+
         await connection.query(
           `INSERT INTO sale_details (sale_id, product_id, quantity, unit_price, total_price)
            VALUES (?, ?, ?, ?, ?)`,
@@ -72,8 +120,10 @@ export const createSale = async (req, res) => {
           saleNumber,
           subtotal,
           tax,
-          discount,
-          totalAmount
+          discount: discountAmount,
+          totalAmount,
+          payment_method,
+          payment_details
         }
       });
     } catch (error) {
@@ -177,6 +227,74 @@ export const getTodaysSales = async (req, res) => {
     });
   } catch (error) {
     console.error('Error en getTodaysSales:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) await connection.release();
+  }
+};
+
+export const cancelSale = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    const { notes = '' } = req.body;
+    const userId = req.user?.id;
+
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Verificar que la venta existe y no está ya cancelada
+      const [sales] = await connection.query(
+        'SELECT * FROM sales WHERE id = ?',
+        [id]
+      );
+
+      if (!sales || sales.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ success: false, error: 'Venta no encontrada' });
+      }
+
+      if (sales[0].status === 'cancelled') {
+        await connection.rollback();
+        return res.status(400).json({ success: false, error: 'La venta ya está anulada' });
+      }
+
+      // Obtener los items de la venta para revertir inventario
+      const [details] = await connection.query(
+        'SELECT * FROM sale_details WHERE sale_id = ?',
+        [id]
+      );
+
+      // Revertir inventario y registrar movimientos
+      for (const detail of details) {
+        await connection.query(
+          'UPDATE inventory SET quantity = quantity + ? WHERE product_id = ?',
+          [detail.quantity, detail.product_id]
+        );
+
+        await connection.query(
+          `INSERT INTO inventory_movements (product_id, movement_type, quantity, unit_price, total_price, reference_id, user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [detail.product_id, 'adjustment', detail.quantity, detail.unit_price, detail.total_price, id, userId]
+        );
+      }
+
+      // Marcar venta como cancelada
+      await connection.query(
+        'UPDATE sales SET status = ?, notes = CONCAT(IFNULL(notes, \'\'), \' [ANULADA: \', ?, \']\') WHERE id = ?',
+        ['cancelled', notes, id]
+      );
+
+      await connection.commit();
+
+      res.json({ success: true, message: 'Venta anulada exitosamente' });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error en cancelSale:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     if (connection) await connection.release();

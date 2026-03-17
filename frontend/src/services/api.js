@@ -78,6 +78,9 @@ export const updateSale = (id, saleData) =>
 export const deleteSale = (id) =>
   apiClient.delete(`/sales/${id}`);
 
+export const cancelSale = (id, notes = '') =>
+  apiClient.put(`/sales/${id}/cancel`, { notes });
+
 // ============ PURCHASES ============
 export const getPurchases = () =>
   apiClient.get('/purchases');
