@@ -44,12 +44,13 @@ export const getSettings = async (req, res) => {
       storeName: 'Frutería Any',
       currency: 'USD',
       language: 'es',
-      theme: 'light'
+      theme: 'light',
+      tax_rate: 12
     };
 
     try {
       const [settings] = await connection.query(
-        `SELECT storeName, currency, language, theme FROM app_settings LIMIT 1`
+        `SELECT storeName, currency, language, theme, tax_rate FROM app_settings LIMIT 1`
       );
       if (settings && settings.length > 0) {
         appSettings = settings[0];
@@ -74,6 +75,42 @@ export const getSettings = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error en getSettings:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) await connection.release();
+  }
+};
+
+// Actualizar configuración de la tienda (IVA, moneda, etc)
+export const updateSettings = async (req, res) => {
+  let connection;
+  try {
+    const { storeName, tax_rate, currency, language, theme } = req.body;
+
+    connection = await pool.getConnection();
+
+    // Verificar si existen registros en app_settings
+    const [existing] = await connection.query(
+      `SELECT id FROM app_settings LIMIT 1`
+    );
+
+    if (existing && existing.length > 0) {
+      // Actualizar
+      await connection.query(
+        `UPDATE app_settings SET storeName = ?, tax_rate = ?, currency = ?, language = ?, theme = ? WHERE id = 1`,
+        [storeName || 'Frutería Any', tax_rate || 12, currency || 'USD', language || 'es', theme || 'light']
+      );
+    } else {
+      // Insertar
+      await connection.query(
+        `INSERT INTO app_settings (storeName, tax_rate, currency, language, theme) VALUES (?, ?, ?, ?, ?)`,
+        [storeName || 'Frutería Any', tax_rate || 12, currency || 'USD', language || 'es', theme || 'light']
+      );
+    }
+
+    res.json({ success: true, message: '✅ Configuración actualizada exitosamente' });
+  } catch (error) {
+    console.error('❌ Error en updateSettings:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     if (connection) await connection.release();

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProducts, createSale } from '../services/api.js';
+import { getProducts, createSale, getSettings } from '../services/api.js';
 import { ShoppingCart, Search, Trash2, Plus, Minus, X } from 'lucide-react';
 
 export default function PosPage() {
@@ -13,10 +13,25 @@ export default function PosPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [taxRate, setTaxRate] = useState(0.12); // 12% por defecto
 
   useEffect(() => {
     loadProducts();
+    loadSettings();
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await getSettings();
+      if (res.data.success && res.data.data.appSettings) {
+        const rate = (res.data.data.appSettings.tax_rate || 12) / 100;
+        setTaxRate(rate);
+        console.log('✅ IVA cargado:', rate * 100 + '%');
+      }
+    } catch (error) {
+      console.error('⚠️ Error cargando configuración, usando IVA por defecto (12%):', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -73,7 +88,7 @@ export default function PosPage() {
   const subtotal = calculateSubtotal();
   const discountAmount = (subtotal * discount) / 100;
   const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * 0.12; // 12% IVA
+  const tax = taxableAmount * taxRate; // ✅ AHORA USA LA TASA DINÁMICA
   const total = taxableAmount + tax;
 
   const handleCheckout = async () => {
@@ -246,7 +261,7 @@ export default function PosPage() {
               </div>
             )}
             <div className="flex justify-between">
-              <span>IVA (12%):</span>
+              <span>IVA ({(taxRate * 100).toFixed(0)}%):</span>
               <span>${tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t pt-2">

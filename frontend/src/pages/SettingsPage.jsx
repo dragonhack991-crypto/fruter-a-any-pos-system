@@ -23,16 +23,22 @@ export default function SettingsPage() {
     try {
       setLoading(true);
       const res = await getSettings();
-      setSettings(res.data.data || {
-        storeName: '',
+      console.log('📊 Respuesta de getSettings:', res.data);
+      
+      // ✅ Extraer appSettings correctamente
+      const appSettings = res.data.data?.appSettings || {
+        storeName: 'Frutería Any',
         tax_rate: 12,
         currency: 'USD',
         language: 'es',
         theme: 'light'
-      });
+      };
+      
+      setSettings(appSettings);
+      console.log('✅ Settings cargados:', appSettings);
     } catch (err) {
       setError('Error cargando configuración');
-      console.error(err);
+      console.error('❌ Error:', err);
     } finally {
       setLoading(false);
     }
@@ -46,6 +52,7 @@ export default function SettingsPage() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError('Error guardando configuración');
+      console.error('❌ Error:', err);
     } finally {
       setSaving(false);
     }
