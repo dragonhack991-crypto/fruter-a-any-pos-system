@@ -41,12 +41,6 @@ export const refreshToken = () =>
 export const getProducts = () =>
   apiClient.get('/products');
 
-export const getCategories = () =>
-  apiClient.get('/products/categories/list');
-
-export const getUnits = () =>
-  apiClient.get('/products/units/list');
-
 export const getProductByBarcode = (barcode) =>
   apiClient.get(`/products/barcode/${barcode}`);
 
@@ -59,34 +53,42 @@ export const updateProduct = (id, productData) =>
 export const deleteProduct = (id) =>
   apiClient.delete(`/products/${id}`);
 
+// ============ CATEGORIES & UNITS ============
+export const getCategories = () =>
+  apiClient.get('/products/categories/list');
+
+export const getUnits = () =>
+  apiClient.get('/products/units/list');
+
 // ============ SALES ============
-export const getSales = () =>
-  apiClient.get('/sales');
+export const getSales = (page, limit) =>
+  apiClient.get('/sales', {
+    params: { page, limit }
+  });
 
 export const getTodaysSales = () =>
   apiClient.get('/sales/today');
 
-export const createSale = (saleData) =>
-  apiClient.post('/sales', saleData);
-
 export const getSaleById = (id) =>
   apiClient.get(`/sales/${id}`);
 
-export const updateSale = (id, saleData) =>
-  apiClient.put(`/sales/${id}`, saleData);
+export const createSale = (saleData) =>
+  apiClient.post('/sales', saleData);
 
-export const deleteSale = (id) =>
+export const cancelSale = (id) =>
   apiClient.delete(`/sales/${id}`);
 
 // ============ PURCHASES ============
-export const getPurchases = () =>
-  apiClient.get('/purchases');
-
-export const createPurchase = (purchaseData) =>
-  apiClient.post('/purchases', purchaseData);
+export const getPurchases = (page, limit) =>
+  apiClient.get('/purchases', {
+    params: { page, limit }
+  });
 
 export const getPurchaseById = (id) =>
   apiClient.get(`/purchases/${id}`);
+
+export const createPurchase = (purchaseData) =>
+  apiClient.post('/purchases', purchaseData);
 
 export const updatePurchase = (id, purchaseData) =>
   apiClient.put(`/purchases/${id}`, purchaseData);
@@ -106,19 +108,29 @@ export const updateSupplier = (id, supplierData) =>
 
 export const deleteSupplier = (id) =>
   apiClient.delete(`/suppliers/${id}`);
-// ============ INVENTORY ============
-export const getInventory = () =>
-  apiClient.get('/inventory');
 
-export const updateInventory = (id, inventoryData) =>
-  apiClient.put(`/inventory/${id}`, inventoryData);
+// ============ INVENTORY ============
+export const getCurrentInventory = (categoryId, searchTerm) =>
+  apiClient.get('/inventory/current', {
+    params: { categoryId, searchTerm }
+  });
+
+export const getAdjustmentHistory = (page = 1, limit = 20, filters = {}) =>
+  apiClient.get('/inventory/adjustments', {
+    params: { page, limit, ...filters }
+  });
+
+export const getAdjustmentById = (id) =>
+  apiClient.get(`/inventory/adjustments/${id}`);
+
+export const createInventoryAdjustment = (data) =>
+  apiClient.post('/inventory/adjustments', data);
 
 // ============ USERS ============
-export const getUsers = () =>
-  apiClient.get('/users');
-
-export const getAllUsers = () =>
-  apiClient.get('/users');
+export const getUsers = (page, limit) =>
+  apiClient.get('/users', {
+    params: { page, limit }
+  });
 
 export const getUserById = (id) =>
   apiClient.get(`/users/${id}`);
@@ -157,6 +169,21 @@ export const updateAppSettings = (data) =>
 export const updateNotifications = (data) =>
   apiClient.put('/settings/notifications', data);
 
+export const getTaxSettings = () =>
+  apiClient.get('/taxes/settings');
+
+export const updateTaxSettings = (data) =>
+  apiClient.put('/taxes/settings', data);
+
+// ============ TAXES & PROFITS ============
+export const getDailyProfit = (date) =>
+  apiClient.get(`/taxes/daily-profit/${date}`);
+
+export const getProfitRange = (startDate, endDate) =>
+  apiClient.get('/taxes/profit-range', {
+    params: { startDate, endDate }
+  });
+
 // ============ ANALYTICS ============
 export const getAnalyticsStats = () =>
   apiClient.get('/analytics/stats');
@@ -169,36 +196,5 @@ export const getSalesByUser = () =>
 
 export const getLowStock = () =>
   apiClient.get('/analytics/low-stock');
-
-// ============ SETTINGS ============
-
-export const updateSettings = (data) =>
-  apiClient.put('/settings', data);
-
-// ============ INVENTORY ============
-export const getCurrentInventory = (categoryId, searchTerm) =>
-  apiClient.get('/inventory/current', {
-    params: { categoryId, searchTerm }
-  });
-
-export const getAdjustmentHistory = (page, limit, filters) =>
-  apiClient.get('/inventory/adjustments', {
-    params: { page, limit, ...filters }
-  });
-
-export const getAdjustmentById = (id) =>
-  apiClient.get(`/inventory/adjustments/${id}`);
-
-export const createInventoryAdjustment = (data) =>
-  apiClient.post('/inventory/adjustments', data);
-
-// ============ TAXES/PROFIT ============
-export const getDailyProfit = (date) =>
-  apiClient.get(`/taxes/daily-profit/${date}`);
-
-export const getProfitRange = (startDate, endDate) =>
-  apiClient.get('/taxes/profit-range', {
-    params: { startDate, endDate }
-  });
 
 export default apiClient;

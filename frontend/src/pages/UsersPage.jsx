@@ -1,32 +1,21 @@
 import { useState, useEffect } from 'react';
-import { getAllUsers, createUser, updateUser, deleteUser, resetUserPassword, updateUserStatus } from '../services/api.js';
-import { Trash2, Edit2, Plus, X, Key, Power } from 'lucide-react';
-import '../styles/users.css';
-
-const ROLES = [
-  { id: 1, name: 'admin', label: 'Administrador' },
-  { id: 2, name: 'manager', label: 'Gerente' },
-  { id: 3, name: 'cashier', label: 'Cajero' }
-];
+import { getUsers, createUser, updateUser, deleteUser } from '../services/api.js';
+import { Plus, Edit2, Trash2, X, AlertCircle, Check } from 'lucide-react';
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showResetPassword, setShowResetPassword] = useState(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-
+  
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    password: '',
     full_name: '',
-    role_id: 3,
-    phone: ''
+    password: '',
+    role_id: 3
   });
 
   useEffect(() => {
@@ -36,74 +25,61 @@ export default function UsersPage() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const res = await getAllUsers();
-      setUsers(res.data.users || []);
-    } catch (error) {
-      setError('Error cargando usuarios');
-      console.error(error);
+      setError('');
+      
+      const res = await getUsers();
+      setUsers(res.data.data || []);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error cargando usuarios');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const mostrarMensaje = (msg, type) => {
-    if (type === 'success') {
-      setSuccess(msg);
-      setError('');
-    } else {
-      setError(msg);
-      setSuccess('');
-    }
-    setTimeout(() => {
-      setSuccess('');
-      setError('');
-    }, 3000);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-
     try {
+      if (!formData.username || !formData.email || !formData.full_name) {
+        setError('Completa todos los campos requeridos');
+        return;
+      }
+
       if (editingId) {
-        await updateUser(editingId, {
-          full_name: formData.full_name,
-          email: formData.email,
-          phone: formData.phone,
-          role_id: formData.role_id
-        });
-        mostrarMensaje('✅ Usuario actualizado correctamente', 'success');
+        await updateUser(editingId, formData);
+        setSuccess('Usuario actualizado ✓');
       } else {
         if (!formData.password) {
-          mostrarMensaje('❌ La contraseña es requerida', 'error');
-          return;
-        }
-        if (formData.password.length < 6) {
-          mostrarMensaje('❌ La contraseña debe tener al menos 6 caracteres', 'error');
+          setError('La contraseña es requerida para nuevos usuarios');
           return;
         }
         await createUser(formData);
-        mostrarMensaje('✅ Usuario creado correctamente', 'success');
+        setSuccess('Usuario creado ✓');
       }
+
       setShowForm(false);
       setEditingId(null);
-      resetForm();
-      loadUsers();
-    } catch (error) {
-      mostrarMensaje(error.response?.data?.error || '❌ Error al guardar usuario', 'error');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm('¿Estás seguro de eliminar este usuario?')) {
-      try {
-        await deleteUser(id);
-        mostrarMensaje('✅ Usuario eliminado correctamente', 'success');
-        loadUsers();
-      } catch (error) {
-        mostrarMensaje(error.response?.data?.error || '❌ Error al eliminar', 'error');
-      }
+      setFormData({
+        username: '',
+        email: '',
+        full_name: '',
+        password: '',
+        role_id: 3
+      });
+      
+      await loadUsers();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error guardando usuario');
+      console.error(err);
     }
   };
 
@@ -111,251 +87,203 @@ export default function UsersPage() {
     setFormData({
       username: user.username,
       email: user.email,
-      password: '',
       full_name: user.full_name,
-      role_id: user.role_id,
-      phone: user.phone || ''
+      password: '',
+      role_id: user.role_id
     });
     setEditingId(user.id);
     setShowForm(true);
   };
 
-  const handleResetPassword = async (userId) => {
-    if (!newPassword || !confirmPassword) {
-      mostrarMensaje('❌ Completa todos los campos', 'error');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      mostrarMensaje('❌ Las contraseñas no coinciden', 'error');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      mostrarMensaje('❌ La contraseña debe tener al menos 6 caracteres', 'error');
-      return;
-    }
-
-    try {
-      await resetUserPassword(userId, newPassword);
-      mostrarMensaje('✅ Contraseña actualizada correctamente', 'success');
-      setShowResetPassword(null);
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      mostrarMensaje(error.response?.data?.error || '❌ Error al cambiar contraseña', 'error');
+  const handleDelete = async (id) => {
+    if (window.confirm('¿Eliminar este usuario?')) {
+      try {
+        await deleteUser(id);
+        setSuccess('Usuario eliminado ✓');
+        await loadUsers();
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (err) {
+        setError('Error eliminando usuario');
+      }
     }
   };
 
-  const handleToggleStatus = async (user) => {
-    try {
-      await updateUserStatus(user.id, !user.is_active);
-      mostrarMensaje(
-        user.is_active ? '✅ Usuario desactivado' : '✅ Usuario activado',
-        'success'
-      );
-      loadUsers();
-    } catch (error) {
-      mostrarMensaje('❌ Error al cambiar estado', 'error');
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      username: '',
-      email: '',
-      password: '',
-      full_name: '',
-      role_id: 3,
-      phone: ''
-    });
-  };
-
-  const closeForm = () => {
-    setShowForm(false);
-    setEditingId(null);
-    resetForm();
-  };
-
-  if (loading) return <div className="p-6 text-center text-gray-600">Cargando usuarios...</div>;
+  if (loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="inline-block">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600 mt-4">Cargando usuarios...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">👥 Gestión de Usuarios</h1>
+        <h1 className="text-3xl font-bold">👥 Usuarios</h1>
         <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+          onClick={() => {
+            setShowForm(true);
+            setEditingId(null);
+            setFormData({
+              username: '',
+              email: '',
+              full_name: '',
+              password: '',
+              role_id: 3
+            });
+          }}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold"
         >
           <Plus size={20} /> Nuevo Usuario
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700 flex justify-between">
+          <span>{error}</span>
+          <button onClick={() => setError('')}><X size={20} /></button>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-          {success}
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded text-green-700 flex items-center gap-2">
+          <Check size={20} /> {success}
         </div>
       )}
 
+      {/* Formulario */}
       {showForm && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">{editingId ? '✏️ Editar' : '➕ Crear'} Usuario</h2>
-            <button onClick={closeForm} className="text-gray-500 hover:text-gray-700">
-              <X size={24} />
-            </button>
-          </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mb-6 bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+          <h2 className="text-xl font-bold mb-4">
+            {editingId ? '✏️ Editar Usuario' : '➕ Nuevo Usuario'}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700">Usuario</label>
+              <label className="block text-sm font-semibold mb-1">Username *</label>
               <input
                 type="text"
-                placeholder="nombre_usuario"
+                name="username"
                 value={formData.username}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
-                disabled={!!editingId}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                className="w-full px-4 py-2 border rounded-lg disabled:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
-            
+
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700">Email</label>
+              <label className="block text-sm font-semibold mb-1">Email *</label>
               <input
                 type="email"
-                placeholder="correo@ejemplo.com"
+                name="email"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700">Nombre Completo</label>
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold mb-1">Nombre Completo *</label>
               <input
                 type="text"
-                placeholder="Juan Pérez"
+                name="full_name"
                 value={formData.full_name}
-                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700">Teléfono</label>
-              <input
-                type="tel"
-                placeholder="+1234567890"
-                value={formData.phone}
-                onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
 
             {!editingId && (
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Contraseña</label>
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold mb-1">Contraseña *</label>
                 <input
                   type="password"
-                  placeholder="••••••••"
+                  name="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  required
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required={!editingId}
                 />
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700">Rol</label>
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold mb-1">Rol</label>
               <select
+                name="role_id"
                 value={formData.role_id}
-                onChange={(e) => setFormData({...formData, role_id: parseInt(e.target.value)})}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                {ROLES.map(role => (
-                  <option key={role.id} value={role.id}>{role.label}</option>
-                ))}
+                <option value={1}>Administrador</option>
+                <option value={2}>Gerente</option>
+                <option value={3}>Cajero</option>
               </select>
             </div>
 
-            <button 
-              type="submit" 
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg md:col-span-2 font-bold transition"
-            >
-              {editingId ? 'Actualizar' : 'Crear'} Usuario
-            </button>
+            <div className="col-span-2 flex gap-3">
+              <button
+                type="submit"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded font-semibold"
+              >
+                {editingId ? 'Actualizar' : 'Crear'} Usuario
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+                className="flex-1 bg-gray-400 hover:bg-gray-500 text-white py-2 rounded font-semibold"
+              >
+                Cancelar
+              </button>
+            </div>
           </form>
         </div>
       )}
 
+      {/* Tabla */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-100 border-b">
             <tr>
-              <th className="px-6 py-3 text-left text-sm font-semibold">Usuario</th>
+              <th className="px-6 py-3 text-left text-sm font-semibold">Username</th>
               <th className="px-6 py-3 text-left text-sm font-semibold">Email</th>
               <th className="px-6 py-3 text-left text-sm font-semibold">Nombre</th>
               <th className="px-6 py-3 text-left text-sm font-semibold">Rol</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold">Acciones</th>
+              <th className="px-6 py-3 text-center text-sm font-semibold">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {users.map(user => (
               <tr key={user.id} className="border-t hover:bg-gray-50">
-                <td className="px-6 py-3 font-bold text-gray-800">{user.username}</td>
-                <td className="px-6 py-3 text-sm text-gray-600">{user.email}</td>
+                <td className="px-6 py-3 font-semibold">{user.username}</td>
+                <td className="px-6 py-3 text-sm">{user.email}</td>
                 <td className="px-6 py-3">{user.full_name}</td>
-                <td className="px-6 py-3">
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">
-                    {ROLES.find(r => r.id === user.role_id)?.label}
+                <td className="px-6 py-3 text-sm capitalize">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">
+                    {user.role === 'admin' ? 'Administrador' : user.role === 'manager' ? 'Gerente' : 'Cajero'}
                   </span>
                 </td>
-                <td className="px-6 py-3">
-                  <span className={`px-3 py-1 rounded text-sm font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                    {user.is_active ? '✓ Activo' : '✗ Inactivo'}
-                  </span>
-                </td>
-                <td className="px-6 py-3 text-right">
-                  <div className="flex gap-3 justify-end">
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="text-blue-600 hover:text-blue-800 transition"
-                      title="Editar usuario"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => setShowResetPassword(user.id)}
-                      className="text-orange-600 hover:text-orange-800 transition"
-                      title="Cambiar contraseña"
-                    >
-                      <Key size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(user)}
-                      className={`transition ${user.is_active ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}
-                      title={user.is_active ? 'Desactivar usuario' : 'Activar usuario'}
-                    >
-                      <Power size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      className="text-red-600 hover:text-red-800 transition"
-                      title="Eliminar usuario"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
+                <td className="px-6 py-3 text-center flex justify-center gap-2">
+                  <button
+                    onClick={() => handleEdit(user)}
+                    className="p-2 hover:bg-blue-100 rounded text-blue-600"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(user.id)}
+                    className="p-2 hover:bg-red-100 rounded text-red-600"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -367,63 +295,6 @@ export default function UsersPage() {
           </div>
         )}
       </div>
-
-      {/* Modal de Resetear Contraseña */}
-      {showResetPassword && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">🔑 Cambiar Contraseña</h3>
-            <p className="text-gray-600 mb-4">
-              Ingresa la nueva contraseña para {users.find(u => u.id === showResetPassword)?.full_name}
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Nueva Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Confirmar Contraseña</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    handleResetPassword(showResetPassword);
-                  }}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold transition"
-                >
-                  Cambiar
-                </button>
-                <button
-                  onClick={() => {
-                    setShowResetPassword(null);
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg font-bold transition"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

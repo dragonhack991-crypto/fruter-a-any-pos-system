@@ -1,19 +1,36 @@
 import { useState, useEffect } from 'react';
-import { getSettings, updateSettings } from '../services/api.js';
-import { Save, Store, Lock, Bell, User, AlertCircle, X } from 'lucide-react';
+import { getSettings, updateAppSettings, getTaxSettings, updateTaxSettings, changePassword } from '../services/api.js';
+import { Save, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('general');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // General Settings
+  const [generalSettings, setGeneralSettings] = useState({
     storeName: '',
-    tax_rate: 12,
-    currency: 'USD',
+    currency: 'MXN',
     language: 'es',
     theme: 'light'
   });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+
+  // Tax Settings
+  const [taxSettings, setTaxSettings] = useState({
+    iva_rate: 12,
+    ieps_rate: 0,
+    apply_iva_by_default: true,
+    apply_ieps_by_default: false
+  });
+
+  // Password Settings
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   useEffect(() => {
     loadSettings();
@@ -22,82 +39,210 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const res = await getSettings();
-      console.log('📊 Respuesta de getSettings:', res.data);
+      setError('');
       
-      // ✅ Extraer appSettings correctamente
-      const appSettings = res.data.data?.appSettings || {
-        storeName: 'Frutería Any',
-        tax_rate: 12,
-        currency: 'USD',
-        language: 'es',
-        theme: 'light'
-      };
-      
-      setSettings(appSettings);
-      console.log('✅ Settings cargados:', appSettings);
+      const [settingsRes, taxRes] = await Promise.all([
+        getSettings(),
+        getTaxSettings()
+      ]);
+
+      if (settingsRes.data.data) {
+        setGeneralSettings(settingsRes.data.data);
+      }
+
+      if (taxRes.data.data) {
+        setTaxSettings(taxRes.data.data);
+      }
     } catch (err) {
-      setError('Error cargando configuración');
-      console.error('❌ Error:', err);
+      setError(err.response?.data?.error || 'Error cargando configuración');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSave = async () => {
+  const handleGeneralChange = (e) => {
+    const { name, value } = e.target;
+    setGeneralSettings(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleTaxChange = (e) => {
+    const { name, value, type } = e.target;
+    setTaxSettings(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? e.target.checked : parseFloat(value)
+    }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveGeneral = async (e) => {
+    e.preventDefault();
     try {
-      setSaving(true);
-      await updateSettings(settings);
-      setSuccess('✅ Configuración guardada correctamente');
+      setError('');
+      setSuccess('');
+      await updateAppSettings(generalSettings);
+      setSuccess('Configuración general guardada ✓');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
-      setError('Error guardando configuración');
-      console.error('❌ Error:', err);
-    } finally {
-      setSaving(false);
+      setError(err.response?.data?.error || 'Error guardando configuración');
+      console.error(err);
     }
   };
 
-  if (loading) return <div className="p-6 text-center">Cargando...</div>;
+  const handleSaveTax = async (e) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setSuccess('');
+      
+      // Validar rangos
+      if (taxSettings.iva_rate < 0 || taxSettings.iva_rate > 100) {
+        setError('IVA debe estar entre 0 y 100');
+        return;
+      }
+      if (taxSettings.ieps_rate < 0 || taxSettings.ieps_rate > 100) {
+        setError('IEPS debe estar entre 0 y 100');
+        return;
+      }
+
+      await updateTaxSettings(taxSettings);
+      setSuccess('Configuración de impuestos guardada ✓');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error guardando configuración');
+      console.error(err);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    try {
+      setError('');
+      setSuccess('');
+
+      if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+        setError('Todos los campos son requeridos');
+        return;
+      }
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setError('Las contraseñas no coinciden');
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        setError('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+
+      await changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        confirmPassword: passwordData.confirmPassword
+      });
+
+      setSuccess('Contraseña cambiada exitosamente ✓');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error cambiando contraseña');
+      console.error(err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 text-center">
+        <div className="inline-block">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600 mt-4">Cargando configuración...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 mb-2">⚙️ Configuración</h1>
-      <p className="text-gray-600 mb-6">Personaliza tu tienda y configura opciones de venta</p>
+    <div className="p-6 max-w-4xl">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">⚙️ Configuración</h1>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between">
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded text-red-700 flex items-center gap-2">
+          <AlertCircle size={20} />
           <span>{error}</span>
-          <button onClick={() => setError('')}><X size={20} /></button>
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex justify-between">
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded text-green-700 flex items-center gap-2">
+          <Check size={20} />
           <span>{success}</span>
-          <button onClick={() => setSuccess('')}><X size={20} /></button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* TIENDA */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Store size={24} className="text-blue-600" />
-            <h2 className="text-xl font-bold">Información de la Tienda</h2>
-          </div>
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6 border-b">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`px-4 py-2 font-semibold transition ${
+            activeTab === 'general'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          General
+        </button>
+        <button
+          onClick={() => setActiveTab('taxes')}
+          className={`px-4 py-2 font-semibold transition ${
+            activeTab === 'taxes'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Impuestos
+        </button>
+        <button
+          onClick={() => setActiveTab('password')}
+          className={`px-4 py-2 font-semibold transition ${
+            activeTab === 'password'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Contraseña
+        </button>
+      </div>
 
-          <div className="space-y-4">
+      {/* GENERAL SETTINGS */}
+      {activeTab === 'general' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Configuración General</h2>
+          
+          <form onSubmit={handleSaveGeneral} className="space-y-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Nombre de la Tienda
               </label>
               <input
                 type="text"
-                value={settings.storeName || ''}
-                onChange={(e) => setSettings({...settings, storeName: e.target.value})}
+                name="storeName"
+                value={generalSettings.storeName}
+                onChange={handleGeneralChange}
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Ej: Mi Frutería"
               />
             </div>
 
@@ -106,73 +251,28 @@ export default function SettingsPage() {
                 Moneda
               </label>
               <select
-                value={settings.currency || 'USD'}
-                onChange={(e) => setSettings({...settings, currency: e.target.value})}
+                name="currency"
+                value={generalSettings.currency}
+                onChange={handleGeneralChange}
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="USD">USD ($)</option>
-                <option value="CRC">CRC (₡)</option>
-                <option value="EUR">EUR (€)</option>
-                <option value="MXN">MXN ($)</option>
-                <option value="COP">COP ($)</option>
+                <option value="USD">USD - Dólar Estadounidense</option>
+                <option value="MXN">MXN - Peso Mexicano</option>
+                <option value="CRC">CRC - Colón Costarricense</option>
+                <option value="EUR">EUR - Euro</option>
+                <option value="COP">COP - Peso Colombiano</option>
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* IMPUESTOS Y VENTAS */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <AlertCircle size={24} className="text-green-600" />
-            <h2 className="text-xl font-bold">Impuestos y Ventas</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Tasa de IVA (%)
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={settings.tax_rate || 12}
-                  onChange={(e) => setSettings({...settings, tax_rate: parseFloat(e.target.value) || 12})}
-                  className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
-                <span className="text-lg font-bold text-gray-700">%</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                ℹ️ Este porcentaje se aplicará automáticamente en todas las ventas POS
-              </p>
-            </div>
-
-            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-              <p className="text-sm font-semibold text-green-800">
-                📊 Ejemplo: Una venta de $100 con {settings.tax_rate}% IVA = ${(100 + (100 * settings.tax_rate / 100)).toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* IDIOMA Y TEMA */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <User size={24} className="text-purple-600" />
-            <h2 className="text-xl font-bold">Interfaz</h2>
-          </div>
-
-          <div className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Idioma
               </label>
               <select
-                value={settings.language || 'es'}
-                onChange={(e) => setSettings({...settings, language: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                name="language"
+                value={generalSettings.language}
+                onChange={handleGeneralChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="es">Español</option>
                 <option value="en">English</option>
@@ -185,53 +285,168 @@ export default function SettingsPage() {
                 Tema
               </label>
               <select
-                value={settings.theme || 'light'}
-                onChange={(e) => setSettings({...settings, theme: e.target.value})}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                name="theme"
+                value={generalSettings.theme}
+                onChange={handleGeneralChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="light">Claro ☀️</option>
-                <option value="dark">Oscuro 🌙</option>
+                <option value="light">Claro</option>
+                <option value="dark">Oscuro</option>
                 <option value="auto">Automático</option>
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* INFORMACIÓN */}
+            <button
+              type="submit"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+            >
+              <Save size={20} /> Guardar Configuración
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* TAX SETTINGS */}
+      {activeTab === 'taxes' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Bell size={24} className="text-orange-600" />
-            <h2 className="text-xl font-bold">Información del Sistema</h2>
-          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 Configuración de Impuestos</h2>
+          
+          <form onSubmit={handleSaveTax} className="space-y-6">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Tasa IVA (%)
+                </label>
+                <input
+                  type="number"
+                  name="iva_rate"
+                  value={taxSettings.iva_rate}
+                  onChange={handleTaxChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
 
-          <div className="space-y-3 text-sm">
-            <p><strong>Versión:</strong> 1.0.0</p>
-            <p><strong>Base de Datos:</strong> MySQL</p>
-            <p><strong>Estado:</strong> ✅ Conectado</p>
-            <p className="text-gray-600 text-xs">
-              Última actualización: {new Date().toLocaleDateString('es-ES')}
-            </p>
-          </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Tasa IEPS (%)
+                </label>
+                <input
+                  type="number"
+                  name="ieps_rate"
+                  value={taxSettings.ieps_rate}
+                  onChange={handleTaxChange}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="apply_iva_by_default"
+                  checked={taxSettings.apply_iva_by_default}
+                  onChange={handleTaxChange}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="font-semibold text-gray-700">Aplicar IVA por defecto en productos nuevos</span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="apply_ieps_by_default"
+                  checked={taxSettings.apply_ieps_by_default}
+                  onChange={handleTaxChange}
+                  className="w-4 h-4 rounded"
+                />
+                <span className="font-semibold text-gray-700">Aplicar IEPS por defecto en productos nuevos</span>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+            >
+              <Save size={20} /> Guardar Impuestos
+            </button>
+          </form>
         </div>
-      </div>
+      )}
 
-      {/* BOTÓN GUARDAR */}
-      <div className="mt-6 flex gap-3">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition"
-        >
-          <Save size={20} />
-          {saving ? 'Guardando...' : 'Guardar Configuración'}
-        </button>
-        <button
-          onClick={loadSettings}
-          className="px-6 py-3 border rounded-lg hover:bg-gray-50 transition font-semibold"
-        >
-          Cancelar
-        </button>
-      </div>
+      {/* PASSWORD SETTINGS */}
+      {activeTab === 'password' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">🔒 Cambiar Contraseña</h2>
+          
+          <form onSubmit={handleChangePassword} className="space-y-6 max-w-md">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Contraseña Actual
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="currentPassword"
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-gray-500"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Nueva Contraseña
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={passwordData.newPassword}
+                onChange={handlePasswordChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Mínimo 6 caracteres</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Confirmar Nueva Contraseña
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordChange}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
+            >
+              <Save size={20} /> Cambiar Contraseña
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
