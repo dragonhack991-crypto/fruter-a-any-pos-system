@@ -3,11 +3,12 @@ import bcryptjs from 'bcryptjs';
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 10;
 
-// Obtener configuración del usuario
 export const getSettings = async (req, res) => {
   let connection;
   try {
     const userId = req.user.id;
+    console.log('📊 Obteniendo settings para usuario:', userId);
+    
     connection = await pool.getConnection();
 
     const [userSettings] = await connection.query(
@@ -21,23 +22,6 @@ export const getSettings = async (req, res) => {
     }
 
     const user = userSettings[0];
-
-    // Obtener phone si existe
-    let phone = '';
-    try {
-      const phoneColumns = await connection.query(
-        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='users' AND COLUMN_NAME='phone'`
-      );
-      if (phoneColumns[0] && phoneColumns[0].length > 0) {
-        const [phoneData] = await connection.query(
-          `SELECT phone FROM users WHERE id = ?`,
-          [userId]
-        );
-        phone = phoneData[0]?.phone || '';
-      }
-    } catch (err) {
-      console.warn('⚠️ Columna phone no existe:', err.message);
-    }
 
     // Obtener configuración general
     let appSettings = {
@@ -53,7 +37,10 @@ export const getSettings = async (req, res) => {
         `SELECT storeName, currency, language, theme, tax_rate FROM app_settings LIMIT 1`
       );
       if (settings && settings.length > 0) {
-        appSettings = settings[0];
+        appSettings = { ...appSettings, ...settings[0] };
+        console.log('✅ App settings encontrados:', appSettings);
+      } else {
+        console.log('⚠️ No hay app_settings en BD, usando defaults');
       }
     } catch (error) {
       console.warn('⚠️ No se pudo obtener app_settings:', error.message);
@@ -67,7 +54,6 @@ export const getSettings = async (req, res) => {
           fullName: user.full_name,
           email: user.email,
           username: user.username,
-          phone: phone,
           createdAt: user.created_at
         },
         appSettings: appSettings
@@ -81,11 +67,11 @@ export const getSettings = async (req, res) => {
   }
 };
 
-// Actualizar configuración de la tienda (IVA, moneda, etc)
 export const updateSettings = async (req, res) => {
   let connection;
   try {
     const { storeName, tax_rate, currency, language, theme } = req.body;
+    console.log('📝 Actualizando settings:', { storeName, tax_rate, currency, language, theme });
 
     connection = await pool.getConnection();
 
@@ -100,12 +86,14 @@ export const updateSettings = async (req, res) => {
         `UPDATE app_settings SET storeName = ?, tax_rate = ?, currency = ?, language = ?, theme = ? WHERE id = 1`,
         [storeName || 'Frutería Any', tax_rate || 12, currency || 'USD', language || 'es', theme || 'light']
       );
+      console.log('✅ Settings actualizados');
     } else {
       // Insertar
       await connection.query(
         `INSERT INTO app_settings (storeName, tax_rate, currency, language, theme) VALUES (?, ?, ?, ?, ?)`,
         [storeName || 'Frutería Any', tax_rate || 12, currency || 'USD', language || 'es', theme || 'light']
       );
+      console.log('✅ Settings insertados');
     }
 
     res.json({ success: true, message: '✅ Configuración actualizada exitosamente' });
@@ -117,7 +105,6 @@ export const updateSettings = async (req, res) => {
   }
 };
 
-// Actualizar perfil del usuario
 export const updateProfile = async (req, res) => {
   let connection;
   try {
@@ -141,10 +128,6 @@ export const updateProfile = async (req, res) => {
       updateFields.push('email = ?');
       params.push(email);
     }
-    if (phone) {
-      updateFields.push('phone = ?');
-      params.push(phone);
-    }
 
     params.push(userId);
 
@@ -166,7 +149,6 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-// Cambiar contraseña
 export const changePassword = async (req, res) => {
   let connection;
   try {
@@ -217,7 +199,6 @@ export const changePassword = async (req, res) => {
   }
 };
 
-// Actualizar configuración de la aplicación
 export const updateAppSettings = async (req, res) => {
   let connection;
   try {
@@ -225,14 +206,12 @@ export const updateAppSettings = async (req, res) => {
 
     connection = await pool.getConnection();
 
-    // Intentar actualizar
     const [result] = await connection.query(
       `UPDATE app_settings SET storeName = ?, currency = ?, language = ?, theme = ?`,
       [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light']
     );
 
     if (result.affectedRows === 0) {
-      // Si no hay registros, insertar
       await connection.query(
         `INSERT INTO app_settings (storeName, currency, language, theme) VALUES (?, ?, ?, ?)`,
         [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light']
@@ -248,7 +227,6 @@ export const updateAppSettings = async (req, res) => {
   }
 };
 
-// Habilitar/Deshabilitar notificaciones
 export const updateNotifications = async (req, res) => {
   let connection;
   try {
@@ -257,14 +235,12 @@ export const updateNotifications = async (req, res) => {
 
     connection = await pool.getConnection();
 
-    // Intentar actualizar
     const [result] = await connection.query(
       `UPDATE user_settings SET notifications_enabled = ? WHERE user_id = ?`,
       [notificationsEnabled ? 1 : 0, userId]
     );
 
     if (result.affectedRows === 0) {
-      // Si no hay registros, insertar
       await connection.query(
         `INSERT INTO user_settings (user_id, notifications_enabled) VALUES (?, ?)`,
         [userId, notificationsEnabled ? 1 : 0]

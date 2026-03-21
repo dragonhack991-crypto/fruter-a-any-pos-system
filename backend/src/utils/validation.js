@@ -141,3 +141,36 @@ export const validatePagination = [
     .optional()
     .matches(/^(-?)[\w]+$/).withMessage('Parámetro sort inválido')
 ];
+// Agregar estas líneas al archivo validation.js existente
+
+export const validateSetting = [
+  body('storeName')
+    .optional()
+    .trim()
+    .isLength({ min: 2 }).withMessage('El nombre de la tienda debe tener al menos 2 caracteres'),
+  body('tax_rate')
+    .optional()
+    .isFloat({ min: 0, max: 100 }).withMessage('El IVA debe estar entre 0-100'),
+  body('currency')
+    .optional()
+    .isIn(['USD', 'CRC', 'EUR', 'MXN', 'COP']).withMessage('Moneda no válida'),
+  body('language')
+    .optional()
+    .isIn(['es', 'en', 'pt']).withMessage('Idioma no válido'),
+  body('theme')
+    .optional()
+    .isIn(['light', 'dark', 'auto']).withMessage('Tema no válido')
+];
+
+export const validatePasswordChange = [
+  body('currentPassword')
+    .notEmpty().withMessage('Contraseña actual requerida'),
+  body('newPassword')
+    .isLength({ min: 6 }).withMessage('Nueva contraseña debe tener al menos 6 caracteres')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('La contraseña debe contener mayúscula, minúscula y número'),
+  body('confirmPassword')
+    .notEmpty().withMessage('Confirmación requerida')
+    .custom((value, { req }) => value === req.body.newPassword)
+    .withMessage('Las contraseñas no coinciden')
+];

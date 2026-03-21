@@ -11,3 +11,16 @@
 [2026-03-21T21:45:34.344Z] INFO - 📍 Puerto: 3000 
 [2026-03-21T21:45:34.345Z] INFO - 🌍 Environment: development 
 [2026-03-21T21:45:34.346Z] INFO - 🔐 CORS: http://localhost:5173 
+[2026-03-21T21:55:56.170Z] INFO - ✅ Variables de entorno validadas correctamente 
+[2026-03-21T21:55:56.180Z] INFO - Ruta registrada: /api/auth (Auth) 
+[2026-03-21T21:55:56.189Z] INFO - Ruta registrada: /api/products (Products) 
+[2026-03-21T21:55:56.191Z] INFO - Ruta registrada: /api/inventory (Inventory) 
+[2026-03-21T21:55:56.192Z] INFO - Ruta registrada: /api/sales (Sales) 
+[2026-03-21T21:55:56.195Z] INFO - Ruta registrada: /api/purchases (Purchases) 
+[2026-03-21T21:55:56.201Z] INFO - Ruta registrada: /api/suppliers (Suppliers) 
+[2026-03-21T21:55:56.207Z] INFO - Ruta registrada: /api/users (Users) 
+[2026-03-21T21:55:56.216Z] INFO - Ruta registrada: /api/analytics (Analytics) 
+[2026-03-21T21:55:56.224Z] INFO - 🚀 SERVIDOR INICIADO EXITOSAMENTE 
+[2026-03-21T21:55:56.226Z] INFO - 📍 Puerto: 3000 
+[2026-03-21T21:55:56.228Z] INFO - 🌍 Environment: development 
+[2026-03-21T21:55:56.229Z] INFO - 🔐 CORS: http://localhost:5173 
