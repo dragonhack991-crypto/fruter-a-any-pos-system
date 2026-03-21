@@ -26,23 +26,24 @@ if (!process.env.NODE_ENV) {
 
 import { requestLogger, errorHandler } from './src/middleware/auth.js';
 
-// Importar rutas
+// ============ IMPORTAR RUTAS ============
 import authRoutes from './src/routes/authRoutes.js';
 import productsRoutes from './src/routes/productsRoutes.js';
-import inventoryRoutes from './src/routes/inventoryRoutes.js';
+import inventoryRoutes from './src/routes/inventoryAdjustmentRoutes.js';
 import salesRoutes from './src/routes/salesRoutes.js';
 import purchasesRoutes from './src/routes/purchasesRoutes.js';
 import suppliersRoutes from './src/routes/providersRoutes.js';
 import usersRoutes from './src/routes/usersRoutes.js';
 import analyticsRoutes from './src/routes/analyticsRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
+import taxRoutes from './src/routes/taxRoutes.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3000;
 const NODE_ENV = process.env.NODE_ENV;
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:5173';
 
-// CORS Configuration
+// ============ CONFIGURACIÓN CORS ============
 app.use(cors({
   origin: CORS_ORIGIN,
   credentials: true,
@@ -50,16 +51,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Middleware
+// ============ MIDDLEWARE ============
 app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-
-// Logging
 app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :url HTTP/:http-version" :status :res[content-length]'));
 app.use(requestLogger);
 
-// Rutas
+// ============ REGISTRAR RUTAS ============
 const routes = [
   { path: '/api/auth', router: authRoutes, name: 'Auth' },
   { path: '/api/products', router: productsRoutes, name: 'Products' },
@@ -69,7 +68,8 @@ const routes = [
   { path: '/api/suppliers', router: suppliersRoutes, name: 'Suppliers' },
   { path: '/api/users', router: usersRoutes, name: 'Users' },
   { path: '/api/analytics', router: analyticsRoutes, name: 'Analytics' },
-  { path: '/api/settings', router: settingsRoutes, name: 'Settings' }
+  { path: '/api/settings', router: settingsRoutes, name: 'Settings' },
+  { path: '/api/taxes', router: taxRoutes, name: 'Taxes' }
 ];
 
 routes.forEach(({ path, router, name }) => {
@@ -81,7 +81,7 @@ routes.forEach(({ path, router, name }) => {
   console.log(`✅ Ruta registrada: ${path} (${name})`);
 });
 
-// Health check
+// ============ HEALTH CHECK ============
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
@@ -91,7 +91,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
+// ============ 404 HANDLER ============
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -101,9 +101,10 @@ app.use((req, res) => {
   });
 });
 
-// Error handler
+// ============ ERROR HANDLER ============
 app.use(errorHandler);
 
+// ============ INICIAR SERVIDOR ============
 const server = app.listen(PORT, () => {
   console.log('\n' + '='.repeat(60));
   console.log('🚀 SERVIDOR INICIADO EXITOSAMENTE');
@@ -115,6 +116,7 @@ const server = app.listen(PORT, () => {
   console.log('='.repeat(60) + '\n');
 });
 
+// ============ MANEJO DE ERRORES NO CAPTURADOS ============
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ UNHANDLED REJECTION');
   console.error('Promise:', promise);

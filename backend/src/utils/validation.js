@@ -1,176 +1,192 @@
-import { body, param, query, validationResult } from 'express-validator';
+import { body, query, validationResult } from 'express-validator';
 
-// Middleware para manejar errores de validación
+// ============ MIDDLEWARE DE VALIDACIÓN ============
+
 export const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
       success: false,
       error: 'Errores de validación',
-      details: errors.array().map(err => ({
-        field: err.param,
-        message: err.msg,
-        value: err.value
-      }))
+      details: errors.array()
     });
   }
   next();
 };
 
-// VALIDACIONES DE PRODUCTOS
+// ============ VALIDACIONES DE PRODUCTOS ============
+
 export const validateProduct = [
   body('name')
     .trim()
-    .notEmpty().withMessage('El nombre es requerido')
-    .isLength({ min: 3 }).withMessage('El nombre debe tener al menos 3 caracteres'),
+    .notEmpty().withMessage('Nombre es requerido')
+    .isLength({ min: 3 }).withMessage('Nombre debe tener al menos 3 caracteres'),
   body('category_id')
-    .isInt().withMessage('category_id debe ser un número'),
+    .isInt({ min: 1 }).withMessage('category_id debe ser un número válido'),
   body('unit_id')
-    .isInt().withMessage('unit_id debe ser un número'),
+    .isInt({ min: 1 }).withMessage('unit_id debe ser un número válido'),
   body('unit_price')
-    .isFloat({ min: 0 }).withMessage('El precio debe ser un número positivo'),
+    .isFloat({ min: 0 }).withMessage('unit_price debe ser un número positivo'),
   body('barcode')
     .optional()
-    .trim()
-    .custom(async (value) => {
-      // Validar que no sea duplicado (se hace en controller)
-      return true;
-    }),
-  body('description').optional().trim(),
-  body('is_perishable').optional().isBoolean(),
-  body('shelf_life_days').optional().isInt({ min: 0 })
-];
-
-export const validateProductUpdate = [
-  param('id').isInt().withMessage('ID debe ser un número'),
-  body('name')
+    .trim(),
+  body('is_perishable')
     .optional()
-    .trim()
-    .isLength({ min: 3 }).withMessage('El nombre debe tener al menos 3 caracteres'),
-  body('unit_price')
+    .isBoolean().withMessage('is_perishable debe ser boolean'),
+  body('shelf_life_days')
     .optional()
-    .isFloat({ min: 0 }).withMessage('El precio debe ser un número positivo'),
-  body('barcode').optional().trim(),
-  body('description').optional().trim()
+    .isInt({ min: 0 }).withMessage('shelf_life_days debe ser un número positivo')
 ];
 
-export const validateProductId = [
-  param('id').isInt().withMessage('ID debe ser un número entero')
+// ============ VALIDACIONES DE IMPUESTOS ============
+
+export const validateProductTaxes = [
+  body('is_iva')
+    .optional()
+    .isBoolean().withMessage('is_iva debe ser boolean'),
+  body('is_ieps')
+    .optional()
+    .isBoolean().withMessage('is_ieps debe ser boolean'),
+  body('ieps_rate')
+    .optional()
+    .isFloat({ min: 0, max: 100 }).withMessage('IEPS rate debe estar entre 0-100')
 ];
 
-// VALIDACIONES DE VENTAS
+export const validateTaxSettings = [
+  body('iva_rate')
+    .isFloat({ min: 0, max: 100 }).withMessage('IVA debe estar entre 0-100'),
+  body('ieps_rate')
+    .isFloat({ min: 0, max: 100 }).withMessage('IEPS debe estar entre 0-100'),
+  body('apply_iva_by_default')
+    .isBoolean().withMessage('apply_iva_by_default debe ser boolean'),
+  body('apply_ieps_by_default')
+    .isBoolean().withMessage('apply_ieps_by_default debe ser boolean')
+];
+
+// ============ VALIDACIONES DE VENTAS ============
+
 export const validateSale = [
   body('items')
-    .isArray({ min: 1 }).withMessage('Debe tener al menos un item'),
+    .isArray({ min: 1 }).withMessage('items debe ser un array con al menos 1 elemento'),
   body('items.*.product_id')
-    .isInt().withMessage('product_id debe ser un número'),
+    .isInt({ min: 1 }).withMessage('product_id debe ser un número válido'),
   body('items.*.quantity')
-    .isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0'),
+    .isFloat({ min: 0.01 }).withMessage('quantity debe ser mayor a 0'),
   body('items.*.unit_price')
-    .isFloat({ min: 0 }).withMessage('El precio debe ser válido'),
+    .isFloat({ min: 0 }).withMessage('unit_price debe ser un número positivo'),
   body('subtotal')
-    .isFloat({ min: 0 }).withMessage('Subtotal debe ser un número positivo'),
-  body('tax')
-    .isFloat({ min: 0 }).withMessage('Tax debe ser un número'),
+    .isFloat({ min: 0 }).withMessage('subtotal debe ser un número positivo'),
   body('discount')
     .optional()
-    .isFloat({ min: 0, max: 100 }).withMessage('Descuento debe estar entre 0-100'),
+    .isFloat({ min: 0 }).withMessage('discount debe ser un número positivo'),
   body('total_amount')
-    .isFloat({ min: 0 }).withMessage('Total debe ser un número positivo'),
+    .isFloat({ min: 0 }).withMessage('total_amount debe ser un número positivo'),
   body('payment_method')
-    .isIn(['cash', 'card', 'check', 'transfer']).withMessage('Método de pago inválido'),
-  body('notes').optional().trim()
+    .isIn(['cash', 'card', 'transfer', 'check']).withMessage('payment_method inválido')
 ];
 
-// VALIDACIONES DE COMPRAS
-export const validatePurchase = [
-  body('supplier_id')
-    .isInt().withMessage('supplier_id debe ser un número'),
-  body('purchase_date')
-    .isISO8601().withMessage('Formato de fecha inválido'),
-  body('items')
-    .isArray({ min: 1 }).withMessage('Debe tener al menos un item'),
-  body('items.*.product_id')
-    .isInt().withMessage('product_id debe ser un número'),
-  body('items.*.quantity')
-    .isInt({ min: 1 }).withMessage('La cantidad debe ser mayor a 0'),
-  body('items.*.unit_cost')
-    .isFloat({ min: 0 }).withMessage('El costo debe ser válido'),
-  body('notes').optional().trim()
-];
+// ============ VALIDACIONES DE AJUSTES DE INVENTARIO ============
 
-// VALIDACIONES DE USUARIOS
-export const validateUser = [
-  body('email')
-    .isEmail().withMessage('Email inválido')
-    .normalizeEmail(),
-  body('full_name')
+export const validateInventoryAdjustment = [
+  body('product_id')
+    .isInt({ min: 1 }).withMessage('product_id debe ser un número válido'),
+  body('quantity_change')
+    .isFloat()
+    .withMessage('quantity_change debe ser un número')
+    .custom(value => value !== 0).withMessage('quantity_change no puede ser 0'),
+  body('reason')
     .trim()
-    .notEmpty().withMessage('El nombre es requerido')
-    .isLength({ min: 3 }).withMessage('El nombre debe tener al menos 3 caracteres'),
-  body('password')
-    .isLength({ min: 6 }).withMessage('La contraseña debe tener al menos 6 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('La contraseña debe contener mayúscula, minúscula y número'),
-  body('role')
-    .isIn([1, 2, 3]).withMessage('Rol inválido (1=admin, 2=manager, 3=cashier)')
-];
-
-// VALIDACIONES DE PROVEEDORES
-export const validateSupplier = [
-  body('name')
-    .trim()
-    .notEmpty().withMessage('El nombre es requerido')
-    .isLength({ min: 3 }).withMessage('El nombre debe tener al menos 3 caracteres'),
-  body('contact_person').optional().trim(),
-  body('email')
+    .notEmpty().withMessage('reason es requerido')
+    .isIn(['merma', 'ajuste_fisico', 'robo', 'danado', 'devolucion', 'otro'])
+    .withMessage('reason debe ser: merma, ajuste_fisico, robo, danado, devolucion u otro'),
+  body('notes')
     .optional()
-    .isEmail().withMessage('Email inválido'),
-  body('phone').optional().trim(),
-  body('address').optional().trim()
+    .trim()
 ];
 
-// VALIDACIONES DE PAGINACIÓN
+// ============ VALIDACIONES DE PAGINACIÓN ============
+
 export const validatePagination = [
   query('page')
     .optional()
-    .isInt({ min: 1 }).withMessage('page debe ser mayor a 0'),
+    .isInt({ min: 1 }).withMessage('page debe ser un número positivo'),
   query('limit')
     .optional()
-    .isInt({ min: 1, max: 100 }).withMessage('limit debe estar entre 1-100'),
-  query('sort')
-    .optional()
-    .matches(/^(-?)[\w]+$/).withMessage('Parámetro sort inválido')
+    .isInt({ min: 1, max: 100 }).withMessage('limit debe estar entre 1 y 100')
 ];
-// Agregar estas líneas al archivo validation.js existente
+
+// ============ VALIDACIONES DE USUARIOS ============
+
+export const validateUser = [
+  body('username')
+    .trim()
+    .notEmpty().withMessage('username es requerido')
+    .isLength({ min: 3 }).withMessage('username debe tener al menos 3 caracteres'),
+  body('email')
+    .trim()
+    .isEmail().withMessage('email debe ser válido'),
+  body('full_name')
+    .trim()
+    .notEmpty().withMessage('full_name es requerido'),
+  body('password')
+    .optional()
+    .isLength({ min: 6 }).withMessage('password debe tener al menos 6 caracteres'),
+  body('role_id')
+    .optional()
+    .isInt({ min: 1 }).withMessage('role_id debe ser un número válido')
+];
+
+// ============ VALIDACIONES DE CONTRASEÑA ============
+
+export const validatePasswordChange = [
+  body('currentPassword')
+    .notEmpty().withMessage('currentPassword es requerido'),
+  body('newPassword')
+    .isLength({ min: 6 }).withMessage('newPassword debe tener al menos 6 caracteres')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('newPassword debe contener mayúscula, minúscula y número'),
+  body('confirmPassword')
+    .notEmpty().withMessage('confirmPassword es requerido')
+    .custom((value, { req }) => value === req.body.newPassword)
+    .withMessage('Las contraseñas no coinciden')
+];
+
+// ============ VALIDACIONES DE CONFIGURACIÓN ============
 
 export const validateSetting = [
   body('storeName')
     .optional()
     .trim()
-    .isLength({ min: 2 }).withMessage('El nombre de la tienda debe tener al menos 2 caracteres'),
+    .isLength({ min: 2 }).withMessage('storeName debe tener al menos 2 caracteres'),
   body('tax_rate')
     .optional()
-    .isFloat({ min: 0, max: 100 }).withMessage('El IVA debe estar entre 0-100'),
+    .isFloat({ min: 0, max: 100 }).withMessage('tax_rate debe estar entre 0-100'),
   body('currency')
     .optional()
-    .isIn(['USD', 'CRC', 'EUR', 'MXN', 'COP']).withMessage('Moneda no válida'),
+    .isIn(['USD', 'CRC', 'EUR', 'MXN', 'COP']).withMessage('currency no válida'),
   body('language')
     .optional()
-    .isIn(['es', 'en', 'pt']).withMessage('Idioma no válido'),
+    .isIn(['es', 'en', 'pt']).withMessage('language no válida'),
   body('theme')
     .optional()
-    .isIn(['light', 'dark', 'auto']).withMessage('Tema no válido')
+    .isIn(['light', 'dark', 'auto']).withMessage('theme no válida')
 ];
 
-export const validatePasswordChange = [
-  body('currentPassword')
-    .notEmpty().withMessage('Contraseña actual requerida'),
-  body('newPassword')
-    .isLength({ min: 6 }).withMessage('Nueva contraseña debe tener al menos 6 caracteres')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('La contraseña debe contener mayúscula, minúscula y número'),
-  body('confirmPassword')
-    .notEmpty().withMessage('Confirmación requerida')
-    .custom((value, { req }) => value === req.body.newPassword)
-    .withMessage('Las contraseñas no coinciden')
+// ============ VALIDACIONES DE COMPRAS ============
+
+export const validatePurchase = [
+  body('provider_id')
+    .isInt({ min: 1 }).withMessage('provider_id debe ser un número válido'),
+  body('items')
+    .isArray({ min: 1 }).withMessage('items debe ser un array con al menos 1 elemento'),
+  body('items.*.product_id')
+    .isInt({ min: 1 }).withMessage('product_id debe ser un número válido'),
+  body('items.*.quantity')
+    .isFloat({ min: 0.01 }).withMessage('quantity debe ser mayor a 0'),
+  body('items.*.unit_cost')
+    .isFloat({ min: 0 }).withMessage('unit_cost debe ser un número positivo'),
+  body('subtotal')
+    .isFloat({ min: 0 }).withMessage('subtotal debe ser un número positivo'),
+  body('total_amount')
+    .isFloat({ min: 0 }).withMessage('total_amount debe ser un número positivo')
 ];

@@ -175,4 +175,30 @@ export const getLowStock = () =>
 export const updateSettings = (data) =>
   apiClient.put('/settings', data);
 
+// ============ INVENTORY ============
+export const getCurrentInventory = (categoryId, searchTerm) =>
+  apiClient.get('/inventory/current', {
+    params: { categoryId, searchTerm }
+  });
+
+export const getAdjustmentHistory = (page, limit, filters) =>
+  apiClient.get('/inventory/adjustments', {
+    params: { page, limit, ...filters }
+  });
+
+export const getAdjustmentById = (id) =>
+  apiClient.get(`/inventory/adjustments/${id}`);
+
+export const createInventoryAdjustment = (data) =>
+  apiClient.post('/inventory/adjustments', data);
+
+// ============ TAXES/PROFIT ============
+export const getDailyProfit = (date) =>
+  apiClient.get(`/taxes/daily-profit/${date}`);
+
+export const getProfitRange = (startDate, endDate) =>
+  apiClient.get('/taxes/profit-range', {
+    params: { startDate, endDate }
+  });
+
 export default apiClient;
