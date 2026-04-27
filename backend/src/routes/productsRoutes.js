@@ -15,6 +15,9 @@ router.get('/categories', authenticateToken, productController.getCategories);
 router.get('/units/list', authenticateToken, productController.getUnits);
 router.get('/units', authenticateToken, productController.getUnits);
 
+// Top productos (más vendidos)
+router.get('/top', authenticateToken, productController.getTopProducts);
+
 // Por barcode
 router.get('/barcode/:barcode', authenticateToken, productController.getProductByBarcode);
 
