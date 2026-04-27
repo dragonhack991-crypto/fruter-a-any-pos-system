@@ -41,6 +41,9 @@ export const refreshToken = () =>
 export const getProducts = () =>
   apiClient.get('/products');
 
+export const getTopProducts = (limit = 20, category_id = null) =>
+  apiClient.get('/products/top', { params: { limit, ...(category_id ? { category_id } : {}) } });
+
 export const getProductByBarcode = (barcode) =>
   apiClient.get(`/products/barcode/${barcode}`);
 
@@ -196,5 +199,18 @@ export const getSalesByUser = () =>
 
 export const getLowStock = () =>
   apiClient.get('/analytics/low-stock');
+
+// ============ CASH BOX ============
+export const openCashBox = (opening_amount) =>
+  apiClient.post('/cashbox/open', { opening_amount });
+
+export const closeCashBox = (closing_amount, notes = '') =>
+  apiClient.post('/cashbox/close', { closing_amount, notes });
+
+export const getActiveCashBox = () =>
+  apiClient.get('/cashbox/active');
+
+export const getCashBoxHistory = (params = {}) =>
+  apiClient.get('/cashbox/history', { params });
 
 export default apiClient;
