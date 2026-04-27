@@ -29,7 +29,7 @@ export const createProduct = async (req, res) => {
     // Crear registro en inventario
     await connection.query(
       `INSERT INTO inventory (product_id, quantity, unit_cost, reorder_point) VALUES (?, ?, ?, ?)`,
-      [result.insertId, 0, parseFloat(unit_cost) || parseFloat(unit_price), 0]
+      [result.insertId, 0, unit_cost != null ? parseFloat(unit_cost) : parseFloat(unit_price), 0]
     );
 
     res.status(201).json({
