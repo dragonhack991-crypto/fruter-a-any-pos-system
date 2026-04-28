@@ -119,9 +119,9 @@ export const updateProduct = async (req, res) => {
   let connection;
   try {
     const { id } = req.params;
-    const { name, description, unit_price, barcode } = req.body;
+    const { name, description, unit_price, barcode, is_iva, is_ieps, ieps_rate, sale_type, unit_cost } = req.body;
     
-    if (!name && !unit_price && !barcode) {
+    if (!name && unit_price === undefined && !barcode && is_iva === undefined && is_ieps === undefined && ieps_rate === undefined && !sale_type && unit_cost === undefined) {
       return res.status(400).json({ success: false, error: 'Proporciona al menos un campo para actualizar' });
     }
 
@@ -138,13 +138,33 @@ export const updateProduct = async (req, res) => {
       updateFields.push('description = ?');
       params.push(description);
     }
-    if (unit_price) {
+    if (unit_price !== undefined) {
       updateFields.push('unit_price = ?');
       params.push(unit_price);
     }
-    if (barcode) {
+    if (barcode !== undefined) {
       updateFields.push('barcode = ?');
       params.push(barcode);
+    }
+    if (is_iva !== undefined) {
+      updateFields.push('is_iva = ?');
+      params.push(is_iva ? 1 : 0);
+    }
+    if (is_ieps !== undefined) {
+      updateFields.push('is_ieps = ?');
+      params.push(is_ieps ? 1 : 0);
+    }
+    if (ieps_rate !== undefined) {
+      updateFields.push('ieps_rate = ?');
+      params.push(ieps_rate);
+    }
+    if (sale_type) {
+      updateFields.push('sale_type = ?');
+      params.push(sale_type);
+    }
+    if (unit_cost !== undefined) {
+      updateFields.push('unit_cost = ?');
+      params.push(unit_cost);
     }
 
     params.push(id);
@@ -161,6 +181,54 @@ export const updateProduct = async (req, res) => {
     res.json({ success: true, message: 'Producto actualizado exitosamente' });
   } catch (error) {
     console.error('Error en updateProduct:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) await connection.release();
+  }
+};
+
+export const updateProductTaxSettings = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    const { is_iva, is_ieps, ieps_rate } = req.body;
+
+    if (is_iva === undefined && is_ieps === undefined && ieps_rate === undefined) {
+      return res.status(400).json({ success: false, error: 'Proporciona al menos un campo de impuesto' });
+    }
+
+    connection = await pool.getConnection();
+
+    let updateFields = [];
+    let params = [];
+
+    if (is_iva !== undefined) {
+      updateFields.push('is_iva = ?');
+      params.push(is_iva ? 1 : 0);
+    }
+    if (is_ieps !== undefined) {
+      updateFields.push('is_ieps = ?');
+      params.push(is_ieps ? 1 : 0);
+    }
+    if (ieps_rate !== undefined) {
+      updateFields.push('ieps_rate = ?');
+      params.push(ieps_rate);
+    }
+
+    params.push(id);
+
+    const [result] = await connection.query(
+      `UPDATE products SET ${updateFields.join(', ')} WHERE id = ?`,
+      params
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, error: 'Producto no encontrado' });
+    }
+
+    res.json({ success: true, message: 'Configuración de impuestos actualizada. Solo afectará ventas futuras.' });
+  } catch (error) {
+    console.error('Error en updateProductTaxSettings:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     if (connection) await connection.release();

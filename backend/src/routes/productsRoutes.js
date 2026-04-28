@@ -24,6 +24,7 @@ router.get('/:id', authenticateToken, productController.getProductById);
 // Rutas protegidas (solo admin y manager)
 router.post('/', authenticateToken, authorizeRole(['admin', 'manager']), productController.createProduct);
 router.put('/:id', authenticateToken, authorizeRole(['admin', 'manager']), productController.updateProduct);
+router.post('/:id/tax-settings', authenticateToken, authorizeRole(['admin', 'manager']), productController.updateProductTaxSettings);
 router.delete('/:id', authenticateToken, authorizeRole(['admin']), productController.deleteProduct);
 
 export default router;
