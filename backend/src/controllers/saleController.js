@@ -205,13 +205,19 @@ export const createSale = async (req, res) => {
       discount = 0,
       total_amount,
       payment_method,
-      notes
+      notes,
+      cash_box_session_id
     } = req.body;
 
     console.log('💰 Creando nueva venta...', { itemsCount: items.length });
 
     const userId = req.user?.id || 1;
     const cashBoxId = 1; // Obtener del request si es dinámico
+
+    // Normalizar valores numéricos (pueden llegar como strings desde el frontend)
+    const subtotalNum = parseFloat(subtotal) || 0;
+    const discountNum = parseFloat(discount) || 0;
+    const totalAmountNum = parseFloat(total_amount) || 0;
 
     // Validaciones
     if (!items || items.length === 0) {
@@ -282,9 +288,9 @@ export const createSale = async (req, res) => {
     // Insertar venta
     const [saleResult] = await connection.query(
       `INSERT INTO sales 
-       (sale_number, cash_box_id, user_id, subtotal, tax, discount, total_amount, payment_method, notes, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')`,
-      [saleNumber, cashBoxId, userId, subtotal, totalTax, discount, total_amount, payment_method, notes || '']
+       (sale_number, cash_box_id, cash_box_session_id, user_id, subtotal, tax, discount, total_amount, payment_method, notes, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')`,
+      [saleNumber, cashBoxId, cash_box_session_id || null, userId, subtotalNum, totalTax, discountNum, totalAmountNum, payment_method, notes || '']
     );
 
     const saleId = saleResult.insertId;
@@ -338,11 +344,11 @@ export const createSale = async (req, res) => {
       data: { 
         saleId, 
         saleNumber, 
-        subtotal: parseFloat(subtotal.toFixed(2)),
+        subtotal: parseFloat(subtotalNum.toFixed(2)),
         iva: parseFloat(totalIva.toFixed(2)),
         ieps: parseFloat(totalIeps.toFixed(2)),
-        discount: parseFloat(discount.toFixed(2)),
-        total: parseFloat(total_amount.toFixed(2))
+        discount: parseFloat(discountNum.toFixed(2)),
+        total: parseFloat(totalAmountNum.toFixed(2))
       }
     });
   } catch (error) {

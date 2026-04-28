@@ -15,6 +15,9 @@ router.get('/categories', authenticateToken, productController.getCategories);
 router.get('/units/list', authenticateToken, productController.getUnits);
 router.get('/units', authenticateToken, productController.getUnits);
 
+// Top productos (más vendidos)
+router.get('/top', authenticateToken, productController.getTopProducts);
+
 // Por barcode
 router.get('/barcode/:barcode', authenticateToken, productController.getProductByBarcode);
 
@@ -24,6 +27,7 @@ router.get('/:id', authenticateToken, productController.getProductById);
 // Rutas protegidas (solo admin y manager)
 router.post('/', authenticateToken, authorizeRole(['admin', 'manager']), productController.createProduct);
 router.put('/:id', authenticateToken, authorizeRole(['admin', 'manager']), productController.updateProduct);
+router.post('/:id/tax-settings', authenticateToken, authorizeRole(['admin', 'manager']), productController.updateProductTaxSettings);
 router.delete('/:id', authenticateToken, authorizeRole(['admin']), productController.deleteProduct);
 
 export default router;
