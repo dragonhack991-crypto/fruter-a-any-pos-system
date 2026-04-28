@@ -73,7 +73,7 @@ function AppContent() {
             {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <h1 className="text-base font-bold text-gray-800">🍎 Sistema POS</h1>
-          <div className="w-10" />
+          <div className="flex-1" />
         </div>
 
         {/* Desktop Navbar */}

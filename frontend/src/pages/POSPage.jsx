@@ -9,6 +9,9 @@ import BulkSaleModal from '../components/BulkSaleModal.jsx';
 
 const BULK_TYPES = ['kilogramo', 'gramo', 'litro', 'ml'];
 
+const MIN_BARCODE_LENGTH = 3;
+const BARCODE_BUFFER_TIMEOUT_MS = 500;
+
 const SALE_TYPE_BADGE = {
   kilogramo: { label: 'kg', color: 'bg-blue-100 text-blue-700' },
   gramo: { label: 'gr', color: 'bg-blue-100 text-blue-700' },
@@ -65,7 +68,7 @@ export default function PosPage() {
 
       if (e.key === 'Enter') {
         const code = barcodeBuffer.current.trim();
-        if (code.length > 3) {
+        if (code.length > MIN_BARCODE_LENGTH) {
           handleBarcodeSearch(code);
         }
         barcodeBuffer.current = '';
@@ -78,7 +81,7 @@ export default function PosPage() {
         clearTimeout(barcodeTimeout.current);
         barcodeTimeout.current = setTimeout(() => {
           barcodeBuffer.current = '';
-        }, 500);
+        }, BARCODE_BUFFER_TIMEOUT_MS);
       }
     };
 
@@ -373,7 +376,7 @@ export default function PosPage() {
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Buscar por nombre o código de barras (Enter para buscar)..."
+              placeholder="Buscar producto o código (Enter)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={(e) => {
