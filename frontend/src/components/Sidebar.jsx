@@ -11,6 +11,7 @@ import {
   TrendingDown,
   Receipt,  
   ChevronDown,
+  BarChart3,
   Menu
 } from 'lucide-react';
 
@@ -27,6 +28,7 @@ const menuItems = [
   { path: '/inventory-adjustments', label: 'Ajustes', icon: TrendingDown },
   { path: '/sales', label: 'Ventas', icon: ShoppingCart },
   { path: '/pos', label: 'POS', icon: Receipt },  // ← AGREGAR ESTA LÍNEA
+  { path: '/profits', label: 'Ganancias', icon: BarChart3 },
   { path: '/purchases', label: 'Compras', icon: Truck },
   { path: '/suppliers', label: 'Proveedores', icon: Truck },
   { path: '/users', label: 'Usuarios', icon: Users },

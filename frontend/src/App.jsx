@@ -13,6 +13,7 @@ import UsersPage from './pages/UsersPage';
 import SuppliersPage from './pages/SuppliersPage';
 import SettingsPage from './pages/SettingsPage';
 import POSPage from './pages/POSPage';
+import ProfitsPage from './pages/ProfitsPage';
 
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -57,6 +58,7 @@ function AppContent() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/inventory-adjustments" element={<InventoryAdjustmentsPage />} />
+            <Route path="/profits" element={<ProfitsPage />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/pos" element={<POSPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
