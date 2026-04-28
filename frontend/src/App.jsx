@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
 import LoginPage from './pages/LoginPage';
@@ -18,6 +19,7 @@ import ProfitsPage from './pages/ProfitsPage';
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -40,16 +42,44 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar (fixed, takes space) */}
-      <div className="w-64 fixed left-0 top-0 h-screen z-40">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed md:relative inset-y-0 left-0 z-50
+        w-64 h-full flex-shrink-0
+        transform transition-transform duration-300
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <Sidebar onClose={() => setSidebarOpen(false)} />
       </div>
 
-      {/* Main Content Area (offset by sidebar width) */}
-      <div className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Navbar */}
-        <Navbar user={user} onLogout={handleLogout} />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Mobile Header */}
+        <div className="md:hidden bg-white shadow-sm px-4 py-3 flex items-center justify-between gap-3 flex-shrink-0">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            aria-label="Abrir menú"
+          >
+            {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          <h1 className="text-base font-bold text-gray-800">🍎 Sistema POS</h1>
+          <div className="w-10" />
+        </div>
+
+        {/* Desktop Navbar */}
+        <div className="hidden md:block flex-shrink-0">
+          <Navbar user={user} onLogout={handleLogout} />
+        </div>
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto">
