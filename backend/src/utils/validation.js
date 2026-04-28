@@ -82,7 +82,7 @@ export const validateSale = [
   body('total_amount')
     .isFloat({ min: 0 }).withMessage('total_amount debe ser un número positivo'),
   body('payment_method')
-    .isIn(['cash', 'card', 'transfer', 'check']).withMessage('payment_method inválido')
+    .isIn(['cash', 'card', 'transfer', 'check', 'credit', 'debit']).withMessage('payment_method inválido')
 ];
 
 // ============ VALIDACIONES DE AJUSTES DE INVENTARIO ============

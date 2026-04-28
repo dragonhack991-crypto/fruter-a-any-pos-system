@@ -58,7 +58,8 @@ export default function ProfitsPage() {
       }
 
       const res = await getProfitRange(startDate, endDate);
-      const data = res.data.data || [];
+      const responseData = res.data.data || {};
+      const data = responseData.profits || [];
       
       setPeriodProfits(data);
       
@@ -66,10 +67,10 @@ export default function ProfitsPage() {
       if (data.length > 0) {
         const summary = {
           total_sales: data.reduce((sum, d) => sum + (parseFloat(d.total_sales) || 0), 0),
-          total_costs: data.reduce((sum, d) => sum + (parseFloat(d.total_costs) || 0), 0),
+          total_costs: data.reduce((sum, d) => sum + (parseFloat(d.total_cost) || 0), 0),
           total_profit: data.reduce((sum, d) => sum + (parseFloat(d.net_profit) || 0), 0),
-          total_iva: data.reduce((sum, d) => sum + (parseFloat(d.total_iva) || 0), 0),
-          total_ieps: data.reduce((sum, d) => sum + (parseFloat(d.total_ieps) || 0), 0),
+          total_iva: data.reduce((sum, d) => sum + (parseFloat(d.total_iva_collected) || 0), 0),
+          total_ieps: data.reduce((sum, d) => sum + (parseFloat(d.total_ieps_collected) || 0), 0),
           days: data.length
         };
         setPeriodSummary(summary);
@@ -207,7 +208,7 @@ export default function ProfitsPage() {
                     <div>
                       <p className="text-orange-100 text-sm font-medium">Total Costos</p>
                       <p className="text-4xl font-bold mt-2">
-                        ${parseFloat(dailyProfit.total_costs || 0).toFixed(2)}
+                        ${parseFloat(dailyProfit.total_cost || 0).toFixed(2)}
                       </p>
                     </div>
                     <TrendingUp size={40} className="opacity-50 transform rotate-180" />
@@ -238,21 +239,21 @@ export default function ProfitsPage() {
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                       <span className="font-semibold text-gray-700">IVA (16%)</span>
                       <span className="text-lg font-bold text-blue-600">
-                        ${parseFloat(dailyProfit.total_iva || 0).toFixed(2)}
+                        ${parseFloat(dailyProfit.total_iva_collected || 0).toFixed(2)}
                       </span>
                     </div>
                     
                     <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
                       <span className="font-semibold text-gray-700">IEPS</span>
                       <span className="text-lg font-bold text-orange-600">
-                        ${parseFloat(dailyProfit.total_ieps || 0).toFixed(2)}
+                        ${parseFloat(dailyProfit.total_ieps_collected || 0).toFixed(2)}
                       </span>
                     </div>
                     
                     <div className="flex justify-between items-center p-3 bg-gray-100 rounded-lg">
                       <span className="font-semibold text-gray-700">Total Impuestos</span>
                       <span className="text-lg font-bold text-gray-900">
-                        ${(parseFloat(dailyProfit.total_iva || 0) + parseFloat(dailyProfit.total_ieps || 0)).toFixed(2)}
+                        ${(parseFloat(dailyProfit.total_iva_collected || 0) + parseFloat(dailyProfit.total_ieps_collected || 0)).toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -266,7 +267,7 @@ export default function ProfitsPage() {
                     <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
                       <span className="font-semibold text-gray-700">Número de Ventas</span>
                       <span className="text-lg font-bold text-blue-600">
-                        {dailyProfit.total_transactions || 0}
+                        {dailyProfit.transactions_count || 0}
                       </span>
                     </div>
                     
@@ -275,7 +276,7 @@ export default function ProfitsPage() {
                       <span className="text-lg font-bold text-green-600">
                         ${(
                           parseFloat(dailyProfit.total_sales || 0) / 
-                          (dailyProfit.total_transactions || 1)
+                          (dailyProfit.transactions_count || 1)
                         ).toFixed(2)}
                       </span>
                     </div>
@@ -398,13 +399,13 @@ export default function ProfitsPage() {
                       {periodProfits.map((day, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="px-6 py-4 font-semibold">
-                            {new Date(day.profit_date).toLocaleDateString('es-ES')}
+                            {new Date(day.date_record).toLocaleDateString('es-ES')}
                           </td>
                           <td className="px-6 py-4 text-right text-blue-600 font-semibold">
                             ${parseFloat(day.total_sales || 0).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 text-right text-orange-600 font-semibold">
-                            ${parseFloat(day.total_costs || 0).toFixed(2)}
+                            ${parseFloat(day.total_cost || 0).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 text-right text-green-600 font-semibold">
                             ${parseFloat(day.net_profit || 0).toFixed(2)}
@@ -416,10 +417,10 @@ export default function ProfitsPage() {
                             ).toFixed(1)}%
                           </td>
                           <td className="px-6 py-4 text-right text-gray-600">
-                            ${parseFloat(day.total_iva || 0).toFixed(2)}
+                            ${parseFloat(day.total_iva_collected || 0).toFixed(2)}
                           </td>
                           <td className="px-6 py-4 text-right text-gray-600">
-                            ${parseFloat(day.total_ieps || 0).toFixed(2)}
+                            ${parseFloat(day.total_ieps_collected || 0).toFixed(2)}
                           </td>
                         </tr>
                       ))}

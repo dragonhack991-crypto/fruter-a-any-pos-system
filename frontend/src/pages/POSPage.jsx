@@ -138,16 +138,39 @@ export default function PosPage() {
         return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i);
       }
       const cartKey = String(product.id);
-      return [...prev, { product_id: product.id, product_name: product.name, unit_price: parseFloat(product.unit_price), quantity: 1, cart_key: cartKey }];
+      return [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        unit_price: parseFloat(product.unit_price),
+        quantity: 1,
+        cart_key: cartKey,
+        is_iva: !!product.is_iva,
+        is_ieps: !!product.is_ieps,
+        ieps_rate: parseFloat(product.ieps_rate) || 0,
+        sale_type: product.sale_type
+      }];
     });
   };
 
   // --- Totals ---
   const subtotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
-  const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * taxRate;
-  const total = taxableAmount + tax;
+  const discountFactor = (100 - discount) / 100;
+
+  let totalIva = 0;
+  let totalIeps = 0;
+  cart.forEach(item => {
+    const lineSubtotal = item.unit_price * item.quantity * discountFactor;
+    if (item.is_iva) {
+      totalIva += lineSubtotal * taxRate;
+    }
+    if (item.is_ieps) {
+      const iepsRate = (item.ieps_rate || 0) / 100;
+      totalIeps += lineSubtotal * iepsRate;
+    }
+  });
+
+  const total = subtotal - discountAmount + totalIva + totalIeps;
 
   // --- Checkout ---
   const handleCheckout = () => {
@@ -162,7 +185,7 @@ export default function PosPage() {
         items: cart,
         subtotal: subtotal.toFixed(2),
         discount,
-        tax: tax.toFixed(2),
+        tax: (totalIva + totalIeps).toFixed(2),
         total_amount: total.toFixed(2),
         payment_method: paymentMethod,
         payment_details: paymentDetails,
@@ -451,9 +474,16 @@ export default function PosPage() {
                 <span>Descuento ({discount}%):</span><span>-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-gray-600">
-              <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${tax.toFixed(2)}</span>
-            </div>
+            {totalIva > 0 && (
+              <div className="flex justify-between text-amber-600">
+                <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${totalIva.toFixed(2)}</span>
+              </div>
+            )}
+            {totalIeps > 0 && (
+              <div className="flex justify-between text-orange-600">
+                <span>IEPS:</span><span>${totalIeps.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-base border-t pt-2 text-gray-800">
               <span>Total:</span><span className="text-green-600">${total.toFixed(2)}</span>
             </div>
