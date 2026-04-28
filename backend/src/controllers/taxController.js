@@ -185,7 +185,7 @@ export const calculateProductTaxes = async (connection, productId, subtotal) => 
 
 /**
  * GET /api/taxes/daily-profit/:date
- * Obtener ganancia del día
+ * Obtener ganancia del día (desde ventas reales)
  */
 export const getDailyProfit = async (req, res) => {
   let connection;
@@ -196,40 +196,38 @@ export const getDailyProfit = async (req, res) => {
     
     connection = await pool.getConnection();
 
-    const [[profit]] = await connection.query(
+    // Query live desde sales para datos actualizados
+    const [[salesData]] = await connection.query(
       `SELECT 
-        date_record,
-        total_sales,
-        total_cost,
-        total_iva_collected,
-        total_ieps_collected,
-        net_profit,
-        total_items_sold,
-        transactions_count
-       FROM daily_profit
-       WHERE date_record = ?`,
+        COALESCE(SUM(s.total_amount), 0) as total_sales,
+        COALESCE(SUM(s.tax), 0) as total_iva,
+        0 as total_ieps,
+        COALESCE(COUNT(s.id), 0) as total_transactions,
+        COALESCE(SUM(si.cost_subtotal), 0) as total_costs
+       FROM sales s
+       LEFT JOIN sales_items si ON s.id = si.sale_id
+       WHERE DATE(s.created_at) = ?
+       AND s.status = 'completed'`,
       [date]
     );
 
-    if (!profit) {
-      return res.json({
-        success: true,
-        data: {
-          date_record: date,
-          total_sales: 0,
-          total_cost: 0,
-          total_iva_collected: 0,
-          total_ieps_collected: 0,
-          net_profit: 0,
-          total_items_sold: 0,
-          transactions_count: 0
-        }
-      });
-    }
+    const totalSales = parseFloat(salesData?.total_sales || 0);
+    const totalCosts = parseFloat(salesData?.total_costs || 0);
+    const totalIva = parseFloat(salesData?.total_iva || 0);
+    const totalIeps = parseFloat(salesData?.total_ieps || 0);
+    const netProfit = totalSales - totalCosts;
 
     res.json({
       success: true,
-      data: profit
+      data: {
+        date_record: date,
+        total_sales: totalSales,
+        total_costs: totalCosts,
+        total_iva: totalIva,
+        total_ieps: totalIeps,
+        net_profit: netProfit,
+        total_transactions: parseInt(salesData?.total_transactions || 0)
+      }
     });
   } catch (error) {
     console.error('❌ Error en getDailyProfit:', error);
@@ -241,7 +239,7 @@ export const getDailyProfit = async (req, res) => {
 
 /**
  * GET /api/taxes/profit-range
- * Obtener ganancias en un rango de fechas
+ * Obtener ganancias en un rango de fechas (desde ventas reales)
  */
 export const getProfitRange = async (req, res) => {
   let connection;
@@ -261,47 +259,35 @@ export const getProfitRange = async (req, res) => {
 
     const [profits] = await connection.query(
       `SELECT 
-        date_record,
-        total_sales,
-        total_cost,
-        total_iva_collected,
-        total_ieps_collected,
-        net_profit,
-        total_items_sold,
-        transactions_count
-       FROM daily_profit
-       WHERE date_record BETWEEN ? AND ?
-       ORDER BY date_record DESC`,
+        DATE(s.created_at) as date_record,
+        COALESCE(SUM(s.total_amount), 0) as total_sales,
+        COALESCE(SUM(s.tax), 0) as total_iva,
+        0 as total_ieps,
+        COALESCE(SUM(si.cost_subtotal), 0) as total_costs,
+        COALESCE(COUNT(s.id), 0) as total_transactions
+       FROM sales s
+       LEFT JOIN sales_items si ON s.id = si.sale_id
+       WHERE DATE(s.created_at) BETWEEN ? AND ?
+       AND s.status = 'completed'
+       GROUP BY DATE(s.created_at)
+       ORDER BY DATE(s.created_at) DESC`,
       [startDate, endDate]
     );
 
-    // Calcular totales
-    const totals = {
-      total_sales: 0,
-      total_cost: 0,
-      total_iva: 0,
-      total_ieps: 0,
-      net_profit: 0,
-      items_sold: 0,
-      transactions: 0
-    };
-
-    profits.forEach(profit => {
-      totals.total_sales += parseFloat(profit.total_sales) || 0;
-      totals.total_cost += parseFloat(profit.total_cost) || 0;
-      totals.total_iva += parseFloat(profit.total_iva_collected) || 0;
-      totals.total_ieps += parseFloat(profit.total_ieps_collected) || 0;
-      totals.net_profit += parseFloat(profit.net_profit) || 0;
-      totals.items_sold += profit.total_items_sold || 0;
-      totals.transactions += profit.transactions_count || 0;
-    });
+    // Add net_profit field to each row
+    const profitsWithNetProfit = profits.map(p => ({
+      ...p,
+      total_sales: parseFloat(p.total_sales),
+      total_costs: parseFloat(p.total_costs),
+      total_iva: parseFloat(p.total_iva),
+      total_ieps: parseFloat(p.total_ieps),
+      net_profit: parseFloat(p.total_sales) - parseFloat(p.total_costs),
+      total_transactions: parseInt(p.total_transactions)
+    }));
 
     res.json({
       success: true,
-      data: {
-        profits,
-        totals
-      }
+      data: profitsWithNetProfit
     });
   } catch (error) {
     console.error('❌ Error en getProfitRange:', error);

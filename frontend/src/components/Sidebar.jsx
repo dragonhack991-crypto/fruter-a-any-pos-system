@@ -15,7 +15,7 @@ import {
   Menu
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }) {
   const [isOpen, setIsOpen] = useState(true);
   const location = useLocation();
 
@@ -60,6 +60,7 @@ const menuItems = [
             <Link
               key={item.path}
               to={item.path}
+              onClick={onClose}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                 isActive(item.path)
                   ? 'bg-blue-600 text-white shadow-md'

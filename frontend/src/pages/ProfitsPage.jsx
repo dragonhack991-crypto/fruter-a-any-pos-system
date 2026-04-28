@@ -398,7 +398,7 @@ export default function ProfitsPage() {
                       {periodProfits.map((day, idx) => (
                         <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="px-6 py-4 font-semibold">
-                            {new Date(day.profit_date).toLocaleDateString('es-ES')}
+                            {new Date(day.date_record).toLocaleDateString('es-ES')}
                           </td>
                           <td className="px-6 py-4 text-right text-blue-600 font-semibold">
                             ${parseFloat(day.total_sales || 0).toFixed(2)}
