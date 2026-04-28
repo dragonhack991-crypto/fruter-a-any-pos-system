@@ -109,8 +109,8 @@ export default function ProfitsPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-800 mb-6">💰 Ganancias y Análisis</h1>
+    <div className="p-3 md:p-6">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-6">💰 Ganancias y Análisis</h1>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">

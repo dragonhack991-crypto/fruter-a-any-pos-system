@@ -1,13 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   getTopProducts, getProducts, createSale, getSettings,
-  getActiveCashBox
+  getActiveCashBox, getProductByBarcode
 } from '../services/api.js';
 import { ShoppingCart, Search, Trash2, Plus, Minus, X, Star, Scale, Unlock, Lock, RefreshCw } from 'lucide-react';
 import CashBoxModal from '../components/CashBoxModal.jsx';
 import BulkSaleModal from '../components/BulkSaleModal.jsx';
 
 const BULK_TYPES = ['kilogramo', 'gramo', 'litro', 'ml'];
+
+const MIN_BARCODE_LENGTH = 3;
+const BARCODE_BUFFER_TIMEOUT_MS = 500;
 
 const SALE_TYPE_BADGE = {
   kilogramo: { label: 'kg', color: 'bg-blue-100 text-blue-700' },
@@ -53,6 +56,58 @@ export default function PosPage() {
     searchTimer.current = setTimeout(() => setDebouncedSearch(searchTerm), 300);
     return () => clearTimeout(searchTimer.current);
   }, [searchTerm]);
+
+  // Barcode scanner detection (rapid keypress from scanner hardware)
+  const barcodeBuffer = useRef('');
+  const barcodeTimeout = useRef(null);
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only capture if no input/textarea is currently focused
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      if (e.key === 'Enter') {
+        const code = barcodeBuffer.current.trim();
+        if (code.length > MIN_BARCODE_LENGTH) {
+          handleBarcodeSearch(code);
+        }
+        barcodeBuffer.current = '';
+        clearTimeout(barcodeTimeout.current);
+        return;
+      }
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        barcodeBuffer.current += e.key;
+        clearTimeout(barcodeTimeout.current);
+        barcodeTimeout.current = setTimeout(() => {
+          barcodeBuffer.current = '';
+        }, BARCODE_BUFFER_TIMEOUT_MS);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(barcodeTimeout.current);
+    };
+  }, []);
+
+  const handleBarcodeSearch = async (barcode) => {
+    try {
+      const res = await getProductByBarcode(barcode);
+      if (res.data.success && res.data.data) {
+        const product = res.data.data;
+        if (BULK_TYPES.includes(product.sale_type)) {
+          setBulkProduct(product);
+        } else {
+          addNormalToCart(product);
+        }
+      }
+    } catch {
+      setError(`Producto con código "${barcode}" no encontrado`);
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 
   useEffect(() => {
     loadInitialData();
@@ -113,7 +168,8 @@ export default function PosPage() {
   const displayProducts = showAllProducts ? allProducts : topProducts;
   const filteredProducts = debouncedSearch
     ? displayProducts.filter(p =>
-        p.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (p.barcode && p.barcode.includes(debouncedSearch))
       )
     : displayProducts;
 
@@ -138,15 +194,42 @@ export default function PosPage() {
         return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i);
       }
       const cartKey = String(product.id);
-      return [...prev, { product_id: product.id, product_name: product.name, unit_price: parseFloat(product.unit_price), quantity: 1, cart_key: cartKey }];
+      return [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        unit_price: parseFloat(product.unit_price),
+        quantity: 1,
+        cart_key: cartKey,
+        sale_type: product.sale_type || 'unidad',
+        is_iva: product.is_iva,
+        is_ieps: product.is_ieps,
+        ieps_rate: product.ieps_rate
+      }];
     });
   };
 
-  // --- Totals ---
+  // --- Totals (respecting per-product tax flags) ---
   const subtotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
+
+  let totalIva = 0;
+  let totalIeps = 0;
+  cart.forEach(item => {
+    const itemSubtotal = item.unit_price * item.quantity;
+    const itemAfterDiscount = discount > 0
+      ? itemSubtotal * (1 - discount / 100)
+      : itemSubtotal;
+    if (item.is_iva === true || item.is_iva === 1) {
+      totalIva += itemAfterDiscount * taxRate;
+    }
+    if (item.is_ieps === true || item.is_ieps === 1) {
+      const iepsRate = parseFloat(item.ieps_rate) || 0;
+      totalIeps += itemAfterDiscount * (iepsRate / 100);
+    }
+  });
+
   const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * taxRate;
+  const tax = totalIva + totalIeps;
   const total = taxableAmount + tax;
 
   // --- Checkout ---
@@ -293,9 +376,16 @@ export default function PosPage() {
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Buscar productos..."
+              placeholder="Buscar producto o código (Enter)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchTerm.trim()) {
+                  e.preventDefault();
+                  handleBarcodeSearch(searchTerm.trim());
+                  setSearchTerm('');
+                }
+              }}
               className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm bg-white"
             />
           </div>
@@ -451,9 +541,16 @@ export default function PosPage() {
                 <span>Descuento ({discount}%):</span><span>-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-gray-600">
-              <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${tax.toFixed(2)}</span>
-            </div>
+            {totalIva > 0 && (
+              <div className="flex justify-between text-amber-600">
+                <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${totalIva.toFixed(2)}</span>
+              </div>
+            )}
+            {totalIeps > 0 && (
+              <div className="flex justify-between text-orange-600">
+                <span>IEPS:</span><span>${totalIeps.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-base border-t pt-2 text-gray-800">
               <span>Total:</span><span className="text-green-600">${total.toFixed(2)}</span>
             </div>
