@@ -51,7 +51,10 @@ export default function BulkSaleModal({ product, onAdd, onClose }) {
       product_name: `${product.name} (${parsedQty} ${shortLabel})`,
       unit_price: pricePerUnit,
       quantity: parsedQty,
-      sale_type: saleType
+      sale_type: saleType,
+      is_iva: product.is_iva ? 1 : 0,
+      is_ieps: product.is_ieps ? 1 : 0,
+      ieps_rate: parseFloat(product.ieps_rate) || 0
     });
     onClose();
   };
