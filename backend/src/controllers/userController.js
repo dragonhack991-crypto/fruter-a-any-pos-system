@@ -1,6 +1,7 @@
 import pool from '../config/database.js';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { randomInt } from 'crypto';
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET no está definido en .env');
@@ -659,11 +660,11 @@ export const resetUserPassword = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
     }
 
-    // Generate 8-char random temp password
+    // Generate 8-char random temp password using cryptographically secure random
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let tempPassword = '';
     for (let i = 0; i < 8; i++) {
-      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+      tempPassword += chars.charAt(randomInt(chars.length));
     }
 
     const hashedPassword = await bcryptjs.hash(tempPassword, BCRYPT_ROUNDS);

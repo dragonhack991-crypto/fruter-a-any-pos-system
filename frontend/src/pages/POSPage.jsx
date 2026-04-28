@@ -43,6 +43,9 @@ export default function PosPage() {
   // --- Bulk Sale ---
   const [bulkProduct, setBulkProduct] = useState(null);
 
+  // Counter for unique cart keys
+  const cartKeyCounter = useRef(0);
+
   // Debounce search
   const searchTimer = useRef(null);
   useEffect(() => {
@@ -218,7 +221,7 @@ export default function PosPage() {
         <BulkSaleModal
           product={bulkProduct}
           onAdd={(item) => {
-            const cartKey = `${item.product_id}_bulk_${Date.now()}`;
+            const cartKey = `${item.product_id}_bulk_${++cartKeyCounter.current}`;
             setCart(prev => [...prev, { ...item, cart_key: cartKey }]);
           }}
           onClose={() => setBulkProduct(null)}

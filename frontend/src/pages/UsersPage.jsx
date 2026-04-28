@@ -7,8 +7,10 @@ const ROLE_COLORS = { 1: 'bg-red-100 text-red-700', 2: 'bg-blue-100 text-blue-70
 
 function generatePassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  const array = new Uint32Array(8);
+  crypto.getRandomValues(array);
   let pw = '';
-  for (let i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < 8; i++) pw += chars.charAt(array[i] % chars.length);
   return pw;
 }
 

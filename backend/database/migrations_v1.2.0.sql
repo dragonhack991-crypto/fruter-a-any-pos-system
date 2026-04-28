@@ -53,7 +53,9 @@ CREATE TABLE IF NOT EXISTS cash_box_sessions (
 ALTER TABLE sales
   ADD COLUMN IF NOT EXISTS cash_box_session_id INT NULL AFTER cash_box_id;
 
--- Agregar FK solo si no existe (ignorar error si ya existe)
+-- Agregar FK solo si no existe (el DROP IF EXISTS + ADD evita el error de duplicado)
+ALTER TABLE sales
+  DROP FOREIGN KEY IF EXISTS fk_sales_cbs;
 ALTER TABLE sales
   ADD CONSTRAINT fk_sales_cbs FOREIGN KEY (cash_box_session_id) REFERENCES cash_box_sessions(id) ON DELETE SET NULL;
 
