@@ -50,6 +50,9 @@ export const createProduct = (productData) =>
 export const updateProduct = (id, productData) =>
   apiClient.put(`/products/${id}`, productData);
 
+export const updateProductTaxSettings = (id, taxData) =>
+  apiClient.post(`/products/${id}/tax-settings`, taxData);
+
 export const deleteProduct = (id) =>
   apiClient.delete(`/products/${id}`);
 
@@ -127,10 +130,8 @@ export const createInventoryAdjustment = (data) =>
   apiClient.post('/inventory/adjustments', data);
 
 // ============ USERS ============
-export const getUsers = (page, limit) =>
-  apiClient.get('/users', {
-    params: { page, limit }
-  });
+export const getUsers = (params = {}) =>
+  apiClient.get('/users', { params });
 
 export const getUserById = (id) =>
   apiClient.get(`/users/${id}`);

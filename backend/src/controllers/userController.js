@@ -358,16 +358,39 @@ export const getAllUsers = async (req, res) => {
   try {
     connection = await pool.getConnection();
 
+    const { role_id, is_active, search } = req.query;
+
+    let whereConditions = [];
+    let params = [];
+
+    if (role_id) {
+      whereConditions.push('u.role_id = ?');
+      params.push(role_id);
+    }
+    if (is_active !== undefined) {
+      whereConditions.push('u.is_active = ?');
+      params.push(is_active === '1' || is_active === 'true' ? 1 : 0);
+    }
+    if (search) {
+      whereConditions.push('(u.username LIKE ? OR u.email LIKE ? OR u.full_name LIKE ?)');
+      const likeVal = `%${search}%`;
+      params.push(likeVal, likeVal, likeVal);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
     const [users] = await connection.query(
       `SELECT u.id, u.username, u.email, u.full_name, u.role_id, u.is_active, u.created_at, r.name as role_name
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
-       ORDER BY u.created_at DESC`
+       ${whereClause}
+       ORDER BY u.created_at DESC`,
+      params
     );
 
     res.json({
       success: true,
-      users: users || []
+      data: users || []
     });
 
   } catch (error) {
@@ -540,6 +563,24 @@ export const deleteUser = async (req, res) => {
 
     connection = await pool.getConnection();
 
+    // Validate not deleting last admin
+    const [[targetUser]] = await connection.query(
+      'SELECT role_id FROM users WHERE id = ? AND is_active = TRUE',
+      [id]
+    );
+
+    if (targetUser && targetUser.role_id === 1) {
+      const [[adminCount]] = await connection.query(
+        'SELECT COUNT(*) as count FROM users WHERE role_id = 1 AND is_active = TRUE'
+      );
+      if (adminCount.count <= 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'No se puede desactivar el último administrador del sistema'
+        });
+      }
+    }
+
     const [result] = await connection.query(
       'UPDATE users SET is_active = FALSE WHERE id = ?',
       [id]
@@ -601,34 +642,42 @@ export const refreshToken = async (req, res) => {
     });
   }
 };
-// Cambiar contraseña de un usuario (admin/manager)
+// Cambiar contraseña de un usuario (admin/manager) - genera contraseña temporal
 export const resetUserPassword = async (req, res) => {
   let connection;
   try {
     const userId = req.params.id;
-    const { newPassword } = req.body;
-
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'La contraseña debe tener al menos 6 caracteres' 
-      });
-    }
 
     connection = await pool.getConnection();
 
-    const hashedPassword = await bcryptjs.hash(newPassword, BCRYPT_ROUNDS);
+    const [[targetUser]] = await connection.query(
+      'SELECT id, username FROM users WHERE id = ?',
+      [userId]
+    );
 
-    const [result] = await connection.query(
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+
+    // Generate 8-char random temp password
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let tempPassword = '';
+    for (let i = 0; i < 8; i++) {
+      tempPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const hashedPassword = await bcryptjs.hash(tempPassword, BCRYPT_ROUNDS);
+
+    await connection.query(
       'UPDATE users SET password_hash = ? WHERE id = ?',
       [hashedPassword, userId]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
-    }
-
-    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+    res.json({
+      success: true,
+      tempPassword,
+      message: `Contraseña reseteada. Nueva contraseña temporal: ${tempPassword}`
+    });
   } catch (error) {
     console.error('Error en resetUserPassword:', error);
     res.status(500).json({ success: false, error: error.message });
