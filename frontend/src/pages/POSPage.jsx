@@ -109,11 +109,58 @@ export default function PosPage() {
     }
   };
 
+  // --- Barcode / Search ---
+  const searchInputRef = useRef(null);
+
+  // All unique products available for search (top + all, deduplicated by id)
+  const searchPool = (() => {
+    const seen = new Set();
+    const pool = [...topProducts, ...allProducts];
+    return pool.filter(p => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  })();
+
+  const dropdownSuggestions = debouncedSearch
+    ? searchPool
+        .filter(p =>
+          p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          (p.barcode && p.barcode.includes(debouncedSearch))
+        )
+        .slice(0, 6)
+    : [];
+
+  const handleBarcodeSearch = (query) => {
+    if (!query.trim()) return;
+    const q = query.trim();
+
+    // Search by exact barcode first, then by name
+    let product = searchPool.find(p => p.barcode && p.barcode === q);
+    if (!product) {
+      product = searchPool.find(p => p.name.toLowerCase().includes(q.toLowerCase()));
+    }
+
+    if (product) {
+      const isBulk = BULK_TYPES.includes(product.sale_type);
+      if (isBulk) {
+        setBulkProduct(product);
+      } else {
+        addNormalToCart(product);
+      }
+      setSearchTerm('');
+    } else {
+      setError(`Producto "${q}" no encontrado`);
+    }
+  };
+
   // Productos a mostrar: top o todos, filtrados por búsqueda
   const displayProducts = showAllProducts ? allProducts : topProducts;
   const filteredProducts = debouncedSearch
     ? displayProducts.filter(p =>
-        p.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (p.barcode && p.barcode.includes(debouncedSearch))
       )
     : displayProducts;
 
@@ -292,12 +339,45 @@ export default function PosPage() {
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Buscar productos..."
+              placeholder="Buscar o escanear código de barras..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleBarcodeSearch(searchTerm);
+                }
+              }}
               className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm bg-white"
             />
+            {/* Dropdown suggestions */}
+            {debouncedSearch && (
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-auto z-20">
+                {dropdownSuggestions.length === 0 ? (
+                  <div className="px-4 py-2 text-sm text-gray-400">Sin resultados</div>
+                ) : dropdownSuggestions.map(product => (
+                  <button
+                    key={product.id}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const isBulk = BULK_TYPES.includes(product.sale_type);
+                      if (isBulk) {
+                        setBulkProduct(product);
+                      } else {
+                        addNormalToCart(product);
+                      }
+                      setSearchTerm('');
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex justify-between items-center"
+                  >
+                    <span className="font-medium text-gray-800">{product.name}</span>
+                    <span className="text-xs text-gray-400">{product.barcode ? `#${product.barcode}` : ''} ${parseFloat(product.unit_price).toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

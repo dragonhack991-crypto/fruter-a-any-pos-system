@@ -192,6 +192,9 @@ export const getProfitRange = (startDate, endDate) =>
 export const getAnalyticsStats = () =>
   apiClient.get('/analytics/stats');
 
+export const getDashboardStats = () =>
+  apiClient.get('/analytics/dashboard-stats');
+
 export const getDailySales = () =>
   apiClient.get('/analytics/daily-sales');
 

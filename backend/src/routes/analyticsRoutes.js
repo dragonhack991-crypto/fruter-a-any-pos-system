@@ -172,4 +172,43 @@ router.get('/low-stock', authenticateToken, authorizeRole(['admin', 'manager']),
   }
 });
 
+// Estadísticas del dashboard (hoy)
+router.get('/dashboard-stats', authenticateToken, async (req, res) => {
+  try {
+    const [todayStats] = await db.query(`
+      SELECT 
+        COUNT(*) as sales_today,
+        COALESCE(SUM(total_amount), 0) as revenue_today,
+        COALESCE(SUM(tax), 0) as tax_today,
+        COUNT(DISTINCT user_id) as users_today
+      FROM sales
+      WHERE DATE(created_at) = CURDATE()
+      AND status = 'completed'
+    `);
+
+    const [productStats] = await db.query(`
+      SELECT COUNT(*) as total_products FROM products WHERE is_active = 1
+    `);
+
+    const [userStats] = await db.query(`
+      SELECT COUNT(*) as total_users FROM users WHERE is_active = 1
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        salesHoy: parseInt(todayStats[0]?.sales_today) || 0,
+        totalHoy: parseFloat(todayStats[0]?.revenue_today || 0).toFixed(2),
+        taxHoy: parseFloat(todayStats[0]?.tax_today || 0).toFixed(2),
+        usersHoy: parseInt(todayStats[0]?.users_today) || 0,
+        totalProducts: parseInt(productStats[0]?.total_products) || 0,
+        totalUsers: parseInt(userStats[0]?.total_users) || 0
+      }
+    });
+  } catch (error) {
+    console.error('Error en dashboard-stats:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;
