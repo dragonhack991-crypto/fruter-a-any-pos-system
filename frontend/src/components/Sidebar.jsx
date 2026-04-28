@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,10 +14,30 @@ import {
   BarChart3,
   Menu
 } from 'lucide-react';
+import { getSettings } from '../services/api.js';
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(true);
+  const [businessName, setBusinessName] = useState('Frutera');
+  const [logoUrl, setLogoUrl] = useState('');
   const location = useLocation();
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await getSettings();
+      if (res.data.data) {
+        const appSettings = res.data.data.appSettings || {};
+        if (appSettings.storeName) setBusinessName(appSettings.storeName);
+        if (appSettings.logo_url) setLogoUrl(appSettings.logo_url);
+      }
+    } catch (err) {
+      console.error('Error loading settings in Sidebar:', err);
+    }
+  };
 
   const isActive = (path) => location.pathname === path;
 
@@ -43,7 +63,16 @@ const menuItems = [
     >
       {/* Logo/Header */}
       <div className="p-4 border-b border-blue-700 flex items-center justify-between">
-        {isOpen && <h1 className="text-2xl font-bold">🍎 Frutera</h1>}
+        {isOpen && (
+          <div className="flex items-center gap-2">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-10 w-10 object-contain rounded-lg" />
+            ) : (
+              <span className="text-2xl">🍎</span>
+            )}
+            <h1 className="text-lg font-bold truncate">{businessName}</h1>
+          </div>
+        )}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 hover:bg-blue-700 rounded-lg transition"

@@ -212,24 +212,60 @@ export const getDailyProfit = async (req, res) => {
     );
 
     if (!profit) {
+      // Compute directly from sales/sales_items when daily_profit has no record
+      const [[computed]] = await connection.query(
+        `SELECT
+          COALESCE(SUM(s.total_amount), 0) as total_sales,
+          COALESCE(SUM(si.cost_subtotal), 0) as total_cost,
+          COALESCE(SUM(si.iva_amount), 0) as total_iva_collected,
+          COALESCE(SUM(si.ieps_amount), 0) as total_ieps_collected,
+          COALESCE(SUM(si.quantity), 0) as total_items_sold,
+          COUNT(DISTINCT s.id) as transactions_count
+         FROM sales s
+         LEFT JOIN sales_items si ON s.id = si.sale_id
+         WHERE DATE(s.created_at) = ? AND s.status = 'completed'`,
+        [date]
+      );
+
+      const totalSales = parseFloat(computed.total_sales || 0);
+      const totalCost = parseFloat(computed.total_cost || 0);
+      const totalIva = parseFloat(computed.total_iva_collected || 0);
+      const totalIeps = parseFloat(computed.total_ieps_collected || 0);
+      const transactionsCount = parseInt(computed.transactions_count || 0);
+
       return res.json({
         success: true,
         data: {
           date_record: date,
-          total_sales: 0,
-          total_cost: 0,
-          total_iva_collected: 0,
-          total_ieps_collected: 0,
-          net_profit: 0,
-          total_items_sold: 0,
-          transactions_count: 0
+          total_sales: totalSales,
+          total_cost: totalCost,
+          total_costs: totalCost,
+          total_iva_collected: totalIva,
+          total_ieps_collected: totalIeps,
+          total_iva: totalIva,
+          total_ieps: totalIeps,
+          net_profit: totalSales - totalCost,
+          total_items_sold: parseInt(computed.total_items_sold || 0),
+          transactions_count: transactionsCount,
+          total_transactions: transactionsCount
         }
       });
     }
 
+    const totalIva = parseFloat(profit.total_iva_collected || 0);
+    const totalIeps = parseFloat(profit.total_ieps_collected || 0);
+    const totalCost = parseFloat(profit.total_cost || 0);
+    const transactionsCount = parseInt(profit.transactions_count || 0);
+
     res.json({
       success: true,
-      data: profit
+      data: {
+        ...profit,
+        total_costs: totalCost,
+        total_iva: totalIva,
+        total_ieps: totalIeps,
+        total_transactions: transactionsCount
+      }
     });
   } catch (error) {
     console.error('❌ Error en getDailyProfit:', error);

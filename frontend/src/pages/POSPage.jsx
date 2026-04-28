@@ -138,16 +138,39 @@ export default function PosPage() {
         return prev.map(i => i === existing ? { ...i, quantity: i.quantity + 1 } : i);
       }
       const cartKey = String(product.id);
-      return [...prev, { product_id: product.id, product_name: product.name, unit_price: parseFloat(product.unit_price), quantity: 1, cart_key: cartKey }];
+      return [...prev, {
+        product_id: product.id,
+        product_name: product.name,
+        unit_price: parseFloat(product.unit_price),
+        quantity: 1,
+        cart_key: cartKey,
+        is_iva: product.is_iva,
+        is_ieps: product.is_ieps,
+        ieps_rate: product.ieps_rate || 0
+      }];
     });
   };
 
   // --- Totals ---
   const subtotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
+
+  // Calculate per-product taxes
+  const { taxIva, taxIeps } = cart.reduce((acc, item) => {
+    const itemSubtotal = item.unit_price * item.quantity;
+    const taxableBase = itemSubtotal * (1 - discount / 100);
+    const useIva = item.is_iva === 1 || item.is_iva === true;
+    const useIeps = item.is_ieps === 1 || item.is_ieps === true;
+    if (useIva) acc.taxIva += taxableBase * 0.16;
+    if (useIeps) acc.taxIeps += taxableBase * ((item.ieps_rate || 0) / 100);
+    return acc;
+  }, { taxIva: 0, taxIeps: 0 });
+
+  // Fallback: if no product-level tax flags, use global taxRate
+  const hasPerProductTax = cart.some(i => i.is_iva !== undefined || i.is_ieps !== undefined);
   const taxableAmount = subtotal - discountAmount;
-  const tax = taxableAmount * taxRate;
-  const total = taxableAmount + tax;
+  const tax = hasPerProductTax ? taxIva + taxIeps : taxableAmount * taxRate;
+  const total = taxableAmount + (hasPerProductTax ? taxIva + taxIeps : tax);
 
   // --- Checkout ---
   const handleCheckout = () => {
@@ -451,9 +474,25 @@ export default function PosPage() {
                 <span>Descuento ({discount}%):</span><span>-${discountAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between text-gray-600">
-              <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${tax.toFixed(2)}</span>
-            </div>
+            {hasPerProductTax ? (
+              <>
+                {taxIva > 0 && (
+                  <div className="flex justify-between text-amber-600">
+                    <span>IVA (16%):</span><span>${taxIva.toFixed(2)}</span>
+                  </div>
+                )}
+                {taxIeps > 0 && (
+                  <div className="flex justify-between text-orange-600">
+                    <span>IEPS:</span>
+                    <span>${taxIeps.toFixed(2)}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex justify-between text-gray-600">
+                <span>IVA ({(taxRate * 100).toFixed(0)}%):</span><span>${tax.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-base border-t pt-2 text-gray-800">
               <span>Total:</span><span className="text-green-600">${total.toFixed(2)}</span>
             </div>

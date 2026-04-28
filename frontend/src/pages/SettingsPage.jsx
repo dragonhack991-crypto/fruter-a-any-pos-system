@@ -47,7 +47,9 @@ export default function SettingsPage() {
       ]);
 
       if (settingsRes.data.data) {
-        setGeneralSettings(settingsRes.data.data);
+        // getSettings returns { user: {...}, appSettings: {...} }
+        const appSettings = settingsRes.data.data.appSettings || settingsRes.data.data;
+        setGeneralSettings(appSettings);
       }
 
       if (taxRes.data.data) {
