@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getSales, getTodaysSales } from '../services/api.js';
+import { getSales, getTodaysSales, getSaleById, cancelSale } from '../services/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, Eye, Trash2 } from 'lucide-react';
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
@@ -9,6 +9,11 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retrying, setRetrying] = useState(false);
+
+  // Sale detail modal
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -57,6 +62,31 @@ export default function SalesPage() {
   const handleRetry = () => {
     setRetrying(true);
     loadData();
+  };
+
+  const handleViewDetail = async (saleId) => {
+    try {
+      setLoadingDetail(true);
+      const res = await getSaleById(saleId);
+      setSelectedSale(res.data.data);
+      setShowDetail(true);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error cargando detalle de venta');
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleCancelSale = async (saleId, saleNumber) => {
+    if (!window.confirm(`¿Está seguro de cancelar la venta ${saleNumber}? Se devolverá el inventario.`)) return;
+    try {
+      await cancelSale(saleId);
+      setShowDetail(false);
+      setSelectedSale(null);
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error cancelando venta');
+    }
   };
 
   if (loading && !retrying) {
@@ -170,6 +200,8 @@ export default function SalesPage() {
                   <th className="px-6 py-3 text-left text-sm font-semibold">Vendedor</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Método</th>
                   <th className="px-6 py-3 text-right text-sm font-semibold">Total</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold">Estado</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -184,6 +216,34 @@ export default function SalesPage() {
                     <td className="px-6 py-3">{sale.user_name || 'No especificado'}</td>
                     <td className="px-6 py-3 capitalize text-sm">{sale.payment_method}</td>
                     <td className="px-6 py-3 text-right font-bold text-lg">${parseFloat(sale.total_amount || 0).toFixed(2)}</td>
+                    <td className="px-6 py-3 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold text-white ${
+                        sale.status === 'completed' ? 'bg-green-500' : 'bg-red-500'
+                      }`}>
+                        {sale.status === 'completed' ? 'Completada' : 'Cancelada'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-center">
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => handleViewDetail(sale.id)}
+                          className="p-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded transition"
+                          title="Ver detalle"
+                          disabled={loadingDetail}
+                        >
+                          <Eye size={15} />
+                        </button>
+                        {sale.status === 'completed' && (
+                          <button
+                            onClick={() => handleCancelSale(sale.id, sale.sale_number)}
+                            className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded transition"
+                            title="Cancelar venta"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -196,6 +256,90 @@ export default function SalesPage() {
           </div>
         )}
       </div>
+
+      {/* Modal detalle de venta */}
+      {showDetail && selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-screen overflow-auto p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Detalle de Venta #{selectedSale.sale_number}</h2>
+              <button onClick={() => setShowDetail(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+              <div>
+                <p className="text-gray-500">Fecha:</p>
+                <p className="font-semibold">{new Date(selectedSale.created_at).toLocaleString('es-ES')}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Estado:</p>
+                <span className={`px-2 py-1 rounded text-xs font-semibold text-white ${
+                  selectedSale.status === 'completed' ? 'bg-green-500' : 'bg-red-500'
+                }`}>
+                  {selectedSale.status === 'completed' ? 'Completada' : 'Cancelada'}
+                </span>
+              </div>
+              <div>
+                <p className="text-gray-500">Método de Pago:</p>
+                <p className="font-semibold capitalize">{selectedSale.payment_method}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Total:</p>
+                <p className="font-bold text-lg text-green-600">${parseFloat(selectedSale.total_amount || 0).toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-bold text-gray-800 mb-3">Productos:</h3>
+              {selectedSale.items && selectedSale.items.length > 0 ? (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="px-3 py-2 text-left">Producto</th>
+                      <th className="px-3 py-2 text-center">Cantidad</th>
+                      <th className="px-3 py-2 text-right">Precio</th>
+                      <th className="px-3 py-2 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedSale.items.map((item, idx) => (
+                      <tr key={idx} className="border-b">
+                        <td className="px-3 py-2">{item.product_name || item.name}</td>
+                        <td className="px-3 py-2 text-center">{item.quantity}</td>
+                        <td className="px-3 py-2 text-right">${parseFloat(item.unit_price || 0).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-right font-semibold">
+                          ${(parseFloat(item.quantity) * parseFloat(item.unit_price || 0)).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 text-sm">Sin items registrados</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowDetail(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+              >
+                Cerrar
+              </button>
+              {selectedSale.status === 'completed' && (
+                <button
+                  onClick={() => handleCancelSale(selectedSale.id, selectedSale.sale_number)}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg transition"
+                >
+                  Cancelar Venta
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
