@@ -112,15 +112,34 @@ export default function PosPage() {
   // --- Barcode / Search ---
   const searchInputRef = useRef(null);
 
+  // All unique products available for search (top + all, deduplicated by id)
+  const searchPool = (() => {
+    const seen = new Set();
+    const pool = [...topProducts, ...allProducts];
+    return pool.filter(p => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  })();
+
+  const dropdownSuggestions = debouncedSearch
+    ? searchPool
+        .filter(p =>
+          p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          (p.barcode && p.barcode.includes(debouncedSearch))
+        )
+        .slice(0, 6)
+    : [];
+
   const handleBarcodeSearch = (query) => {
     if (!query.trim()) return;
     const q = query.trim();
 
-    // Search by barcode first, then by name
-    const allAvail = showAllProducts ? allProducts : [...topProducts, ...allProducts];
-    let product = allAvail.find(p => p.barcode && p.barcode === q);
+    // Search by exact barcode first, then by name
+    let product = searchPool.find(p => p.barcode && p.barcode === q);
     if (!product) {
-      product = allAvail.find(p => p.name.toLowerCase().includes(q.toLowerCase()));
+      product = searchPool.find(p => p.name.toLowerCase().includes(q.toLowerCase()));
     }
 
     if (product) {
@@ -336,40 +355,27 @@ export default function PosPage() {
             {/* Dropdown suggestions */}
             {debouncedSearch && (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-auto z-20">
-                {(showAllProducts ? allProducts : [...topProducts, ...allProducts])
-                  .filter((p, idx, arr) => arr.findIndex(x => x.id === p.id) === idx)
-                  .filter(p =>
-                    p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    (p.barcode && p.barcode.includes(debouncedSearch))
-                  )
-                  .slice(0, 6)
-                  .map(product => (
-                    <button
-                      key={product.id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const isBulk = BULK_TYPES.includes(product.sale_type);
-                        if (isBulk) {
-                          setBulkProduct(product);
-                        } else {
-                          addNormalToCart(product);
-                        }
-                        setSearchTerm('');
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex justify-between items-center"
-                    >
-                      <span className="font-medium text-gray-800">{product.name}</span>
-                      <span className="text-xs text-gray-400">{product.barcode ? `#${product.barcode}` : ''} ${parseFloat(product.unit_price).toFixed(2)}</span>
-                    </button>
-                  ))}
-                {(showAllProducts ? allProducts : [...topProducts, ...allProducts])
-                  .filter((p, idx, arr) => arr.findIndex(x => x.id === p.id) === idx)
-                  .filter(p =>
-                    p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                    (p.barcode && p.barcode.includes(debouncedSearch))
-                  ).length === 0 && (
+                {dropdownSuggestions.length === 0 ? (
                   <div className="px-4 py-2 text-sm text-gray-400">Sin resultados</div>
-                )}
+                ) : dropdownSuggestions.map(product => (
+                  <button
+                    key={product.id}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const isBulk = BULK_TYPES.includes(product.sale_type);
+                      if (isBulk) {
+                        setBulkProduct(product);
+                      } else {
+                        addNormalToCart(product);
+                      }
+                      setSearchTerm('');
+                    }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex justify-between items-center"
+                  >
+                    <span className="font-medium text-gray-800">{product.name}</span>
+                    <span className="text-xs text-gray-400">{product.barcode ? `#${product.barcode}` : ''} ${parseFloat(product.unit_price).toFixed(2)}</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>
