@@ -182,7 +182,7 @@ export default function PosPage() {
     try {
       const saleData = {
         items: cart,
-        subtotal: (subtotal - discountAmount).toFixed(2),
+        subtotal: subtotal.toFixed(2),
         discount,
         tax: (totalIva + totalIeps).toFixed(2),
         total_amount: total.toFixed(2),

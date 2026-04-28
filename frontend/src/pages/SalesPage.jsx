@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getSales, getTodaysSales, getSaleById, cancelSale } from '../services/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { AlertCircle, X, Eye, Trash2, CheckCircle } from 'lucide-react';
@@ -10,6 +10,7 @@ export default function SalesPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [retrying, setRetrying] = useState(false);
+  const successTimerRef = useRef(null);
 
   // Detail modal state
   const [selectedSale, setSelectedSale] = useState(null);
@@ -21,6 +22,7 @@ export default function SalesPage() {
 
   useEffect(() => {
     loadData();
+    return () => { if (successTimerRef.current) clearTimeout(successTimerRef.current); };
   }, []);
 
   const loadData = async () => {
@@ -99,7 +101,8 @@ export default function SalesPage() {
         setSuccess(`Venta cancelada correctamente. N° ${res.data.data?.saleNumber || saleId}`);
         setShowDetail(false);
         loadData();
-        setTimeout(() => setSuccess(''), 5000);
+        if (successTimerRef.current) clearTimeout(successTimerRef.current);
+        successTimerRef.current = setTimeout(() => setSuccess(''), 5000);
       }
     } catch (err) {
       console.error('❌ Error cancelando venta:', err);
