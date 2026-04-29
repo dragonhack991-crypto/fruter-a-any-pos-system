@@ -146,7 +146,7 @@ export default function PosPage() {
         cart_key: cartKey,
         is_iva: product.is_iva,
         is_ieps: product.is_ieps,
-        ieps_rate: product.ieps_rate || 0
+        ieps_rate: parseFloat(product.ieps_rate) || 0
       }];
     });
   };

@@ -39,6 +39,7 @@ export default function ProductsPage() {
     has_tax: true,
     is_iva: true,
     is_ieps: false,
+    ieps_rate: 0,
     is_perishable: false
   });
 
@@ -113,6 +114,7 @@ export default function ProductsPage() {
       has_tax: product.has_tax !== undefined ? Boolean(product.has_tax) : true,
       is_iva: product.is_iva !== undefined ? Boolean(product.is_iva) : true,
       is_ieps: product.is_ieps !== undefined ? Boolean(product.is_ieps) : false,
+      ieps_rate: parseFloat(product.ieps_rate) || 0,
       is_perishable: product.is_perishable ? 1 : 0
     });
     setEditingId(product.id);
@@ -133,6 +135,7 @@ export default function ProductsPage() {
       has_tax: true,
       is_iva: true,
       is_ieps: false,
+      ieps_rate: 0,
       is_perishable: false
     });
   };
@@ -324,6 +327,22 @@ export default function ProductsPage() {
                 />
                 <span className="text-sm font-medium text-gray-700">Aplica IEPS</span>
               </label>
+
+              {formData.is_ieps && (
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tasa IEPS (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.ieps_rate}
+                    onChange={(e) => setFormData({...formData, ieps_rate: parseFloat(e.target.value) || 0})}
+                    className="w-full px-3 py-1.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                    placeholder="Ej: 8"
+                  />
+                </div>
+              )}
 
               <label className="flex items-center gap-2 cursor-pointer bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition">
                 <input

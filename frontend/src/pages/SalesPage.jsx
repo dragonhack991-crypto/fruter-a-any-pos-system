@@ -80,6 +80,7 @@ export default function SalesPage() {
     try {
       await cancelSale(sale.id);
       loadData();
+      window.dispatchEvent(new CustomEvent('salesUpdated'));
     } catch (err) {
       setError(err.response?.data?.error || 'Error al cancelar venta');
     }

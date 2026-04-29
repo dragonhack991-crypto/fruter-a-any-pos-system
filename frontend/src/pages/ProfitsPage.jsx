@@ -31,6 +31,12 @@ export default function ProfitsPage() {
     loadDailyProfit();
   }, [selectedDate]);
 
+  useEffect(() => {
+    const handleSalesUpdated = () => loadDailyProfit();
+    window.addEventListener('salesUpdated', handleSalesUpdated);
+    return () => window.removeEventListener('salesUpdated', handleSalesUpdated);
+  }, [selectedDate]);
+
   const loadDailyProfit = async () => {
     try {
       setLoading(true);
