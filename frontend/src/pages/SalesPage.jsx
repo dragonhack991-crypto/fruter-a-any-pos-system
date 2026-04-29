@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getSales, getTodaysSales } from '../services/api.js';
+import { getSales, getTodaysSales, cancelSale, getSaleById } from '../services/api.js';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, Eye, Ban } from 'lucide-react';
 
 export default function SalesPage() {
   const [sales, setSales] = useState([]);
@@ -9,6 +9,9 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [retrying, setRetrying] = useState(false);
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -57,6 +60,29 @@ export default function SalesPage() {
   const handleRetry = () => {
     setRetrying(true);
     loadData();
+  };
+
+  const handleViewDetails = async (saleId) => {
+    try {
+      setDetailsLoading(true);
+      const res = await getSaleById(saleId);
+      setSelectedSale(res.data.data);
+      setShowDetails(true);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error cargando detalles de venta');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleCancelSale = async (sale) => {
+    if (!window.confirm(`¿Está seguro de cancelar la venta ${sale.sale_number}? Se devolverá el inventario.`)) return;
+    try {
+      await cancelSale(sale.id);
+      loadData();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error al cancelar venta');
+    }
   };
 
   if (loading && !retrying) {
@@ -169,7 +195,9 @@ export default function SalesPage() {
                   <th className="px-6 py-3 text-left text-sm font-semibold">Fecha</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Vendedor</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold">Método</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Estado</th>
                   <th className="px-6 py-3 text-right text-sm font-semibold">Total</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,7 +211,37 @@ export default function SalesPage() {
                     </td>
                     <td className="px-6 py-3">{sale.user_name || 'No especificado'}</td>
                     <td className="px-6 py-3 capitalize text-sm">{sale.payment_method}</td>
+                    <td className="px-6 py-3">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                        sale.status === 'cancelled'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {sale.status === 'cancelled' ? 'Cancelada' : 'Completada'}
+                      </span>
+                    </td>
                     <td className="px-6 py-3 text-right font-bold text-lg">${parseFloat(sale.total_amount || 0).toFixed(2)}</td>
+                    <td className="px-6 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewDetails(sale.id)}
+                          disabled={detailsLoading}
+                          className="text-blue-600 hover:text-blue-800 transition"
+                          title="Ver detalles"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        {sale.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleCancelSale(sale)}
+                            className="text-red-500 hover:text-red-700 transition"
+                            title="Cancelar venta"
+                          >
+                            <Ban size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -196,6 +254,96 @@ export default function SalesPage() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE DETALLES DE VENTA */}
+      {showDetails && selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+                🧾 Detalle de Venta #{selectedSale.sale_number || selectedSale.id}
+              </h2>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+                <div>
+                  <span className="font-semibold text-gray-600">Fecha:</span>
+                  <p>{new Date(selectedSale.created_at).toLocaleString('es-ES')}</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-600">Método de pago:</span>
+                  <p className="capitalize">{selectedSale.payment_method}</p>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-600">Estado:</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                    selectedSale.status === 'cancelled'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-green-100 text-green-700'
+                  }`}>
+                    {selectedSale.status === 'cancelled' ? 'Cancelada' : 'Completada'}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-semibold text-gray-600">Vendedor:</span>
+                  <p>{selectedSale.user_name || 'No especificado'}</p>
+                </div>
+              </div>
+
+              <h3 className="font-bold text-gray-800 mb-3">Productos vendidos:</h3>
+              {selectedSale.items && selectedSale.items.length > 0 ? (
+                <table className="w-full text-sm border rounded-lg overflow-hidden">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Producto</th>
+                      <th className="px-4 py-2 text-right">Cantidad</th>
+                      <th className="px-4 py-2 text-right">Precio U.</th>
+                      <th className="px-4 py-2 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedSale.items.map((item, idx) => (
+                      <tr key={idx} className="border-t">
+                        <td className="px-4 py-2">{item.product_name}</td>
+                        <td className="px-4 py-2 text-right">{item.quantity}</td>
+                        <td className="px-4 py-2 text-right">${parseFloat(item.unit_price || 0).toFixed(2)}</td>
+                        <td className="px-4 py-2 text-right">${parseFloat(item.subtotal || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500 text-sm">No se encontraron productos para esta venta.</p>
+              )}
+
+              <div className="mt-6 border-t pt-4 space-y-2 text-sm">
+                {parseFloat(selectedSale.discount || 0) > 0 && (
+                  <div className="flex justify-between text-red-600">
+                    <span>Descuento:</span>
+                    <span>-${parseFloat(selectedSale.discount).toFixed(2)}</span>
+                  </div>
+                )}
+                {parseFloat(selectedSale.tax || 0) > 0 && (
+                  <div className="flex justify-between text-amber-600">
+                    <span>Impuestos:</span>
+                    <span>${parseFloat(selectedSale.tax).toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold text-lg border-t pt-2">
+                  <span>Total:</span>
+                  <span className="text-green-600">${parseFloat(selectedSale.total_amount || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
