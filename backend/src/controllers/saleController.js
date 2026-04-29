@@ -378,7 +378,7 @@ export const cancelSale = async (req, res) => {
 
     // Obtener venta
     const [[sale]] = await connection.query(
-      'SELECT id, status, sale_number, created_at FROM sales WHERE id = ?',
+      'SELECT id, status, sale_number, DATE(created_at) as sale_date FROM sales WHERE id = ?',
       [id]
     );
 
@@ -423,9 +423,10 @@ export const cancelSale = async (req, res) => {
 
     // Recalcular ganancias del día en que se realizó la venta
     try {
-      const saleDate = sale.created_at ? sale.created_at.split(' ')[0] : new Date().toISOString().split('T')[0];
-      await connection.query('CALL calculate_daily_profit(?)', [saleDate]);
-      console.log('📊 Ganancias del día recalculadas:', saleDate);
+      if (sale.sale_date) {
+        await connection.query('CALL calculate_daily_profit(?)', [sale.sale_date]);
+        console.log('📊 Ganancias del día recalculadas:', sale.sale_date);
+      }
     } catch (profitErr) {
       console.warn('⚠️ No se pudo recalcular ganancias del día:', profitErr.message);
     }
