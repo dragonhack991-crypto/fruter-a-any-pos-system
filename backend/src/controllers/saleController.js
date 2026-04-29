@@ -415,7 +415,7 @@ export const cancelSale = async (req, res) => {
 
     // Marcar como cancelada
     await connection.query(
-      'UPDATE sales SET status = ?, updated_at = NOW() WHERE id = ?',
+      'UPDATE sales SET status = ? WHERE id = ?',
       ['cancelled', id]
     );
 
