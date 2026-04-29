@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getPurchases, createPurchase, deletePurchase, getSuppliers, getProducts } from '../services/api.js';
+import { getPurchases, createPurchase, deletePurchase, getProviders, getProducts } from '../services/api.js';
 import { Trash2, Plus, X, ChevronDown, Search, QrCode } from 'lucide-react';
 
 export default function PurchasesPage() {
@@ -47,20 +47,25 @@ export default function PurchasesPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [purchasesRes, suppliersRes, productsRes] = await Promise.all([
-        getPurchases(),
-        getSuppliers(),
+      // Load providers and products independently so the form works even if purchases fail
+      const [providersRes, productsRes] = await Promise.all([
+        getProviders(),
         getProducts()
       ]);
-      
-      setPurchases(purchasesRes.data.data || []);
-      setSuppliers(suppliersRes.data.data || []);
+      setSuppliers(providersRes.data.data || []);
       setProducts(productsRes.data.data || []);
     } catch (err) {
-      setError('Error cargando datos');
+      setError('Error cargando proveedores o productos');
       console.error(err);
     } finally {
       setLoading(false);
+    }
+    // Load purchase history separately (non-blocking for the form)
+    try {
+      const purchasesRes = await getPurchases();
+      setPurchases(purchasesRes.data.data || []);
+    } catch (err) {
+      console.error('Error cargando historial de compras:', err);
     }
   };
 
@@ -145,10 +150,17 @@ export default function PurchasesPage() {
   };
 
   const selectProduct = (index, product) => {
-    handleItemChange(index, 'product_id', product.id);
-    handleItemChange(index, 'product_name', product.name);
-    handleItemChange(index, 'barcode', product.barcode || '');
-    handleItemChange(index, 'unit_id', product.unit_id || 1);
+    // Update all product fields in a single setState call to avoid stale state
+    const newItems = [...purchaseForm.items];
+    newItems[index] = {
+      ...newItems[index],
+      product_id: product.id,
+      product_name: product.name,
+      barcode: product.barcode || '',
+      unit_id: product.unit_id || 1,
+      unit_cost: product.unit_cost || newItems[index].unit_cost || ''
+    };
+    setPurchaseForm({ ...purchaseForm, items: newItems });
     setShowProductSuggestions({ ...showProductSuggestions, [index]: false });
     setProductSearch({ ...productSearch, [index]: '' });
   };

@@ -115,6 +115,11 @@ export const updateSupplier = (id, supplierData) =>
 export const deleteSupplier = (id) =>
   apiClient.delete(`/suppliers/${id}`);
 
+// ============ PROVIDERS ============
+// Used by PurchasesPage (purchases.provider_id FK references providers table)
+export const getProviders = () =>
+  apiClient.get('/purchases/providers/list');
+
 // ============ INVENTORY ============
 export const getCurrentInventory = (categoryId, searchTerm) =>
   apiClient.get('/inventory/current', {
