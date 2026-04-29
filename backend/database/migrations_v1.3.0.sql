@@ -1,5 +1,5 @@
 -- ============================================
--- MIGRACIONES v1.3.0 - Logo en settings + Compras fix
+-- MIGRACIONES v1.3.0 - Logo en app_settings
 -- ============================================
 
 -- 1. AGREGAR logo_url A app_settings (si la tabla existe)

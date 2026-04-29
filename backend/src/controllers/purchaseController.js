@@ -27,20 +27,36 @@ export const getPurchases = async (req, res) => {
     
     const [purchases] = await db.query(query);
 
-    // Obtener items de cada compra
-    for (const purchase of purchases) {
-      const [items] = await db.query(
-        `SELECT pd.id, pd.product_id, pd.quantity_ordered as quantity, pd.unit_price as unit_cost,
-                pd.total_price as subtotal, pr.name as product_name
-         FROM purchase_details pd
-         JOIN products pr ON pd.product_id = pr.id
-         WHERE pd.purchase_id = ?`,
-        [purchase.id]
-      );
-      purchase.items = items;
+    if (purchases.length === 0) {
+      return res.json({ success: true, data: [] });
     }
+
+    // Obtener todos los items en una sola consulta
+    const purchaseIds = purchases.map(p => p.id);
+    const [allItems] = await db.query(
+      `SELECT pd.purchase_id, pd.id, pd.product_id, pd.quantity_ordered as quantity,
+              pd.unit_price as unit_cost, pd.total_price as subtotal, pr.name as product_name
+       FROM purchase_details pd
+       JOIN products pr ON pd.product_id = pr.id
+       WHERE pd.purchase_id IN (?)`,
+      [purchaseIds]
+    );
+
+    // Agrupar items por purchase_id
+    const itemsByPurchase = {};
+    for (const item of allItems) {
+      if (!itemsByPurchase[item.purchase_id]) {
+        itemsByPurchase[item.purchase_id] = [];
+      }
+      itemsByPurchase[item.purchase_id].push(item);
+    }
+
+    const formattedPurchases = purchases.map(p => ({
+      ...p,
+      items: itemsByPurchase[p.id] || []
+    }));
     
-    res.json({ success: true, data: purchases });
+    res.json({ success: true, data: formattedPurchases });
   } catch (error) {
     console.error('Error getPurchases:', error);
     res.status(500).json({ success: false, error: error.message });

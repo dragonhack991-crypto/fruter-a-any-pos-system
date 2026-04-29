@@ -75,6 +75,11 @@ export default function SettingsPage() {
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError('El logo no debe superar 2MB');
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       setGeneralSettings(prev => ({
