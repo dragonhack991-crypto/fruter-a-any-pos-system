@@ -239,15 +239,15 @@ export const getDailyProfit = async (req, res) => {
           date_record: date,
           total_sales: totalSales,
           total_cost: totalCost,
-          total_costs: totalCost,
+          total_costs: totalCost,         // alias for ProfitsPage compatibility
           total_iva_collected: totalIva,
           total_ieps_collected: totalIeps,
-          total_iva: totalIva,
-          total_ieps: totalIeps,
+          total_iva: totalIva,            // alias for ProfitsPage compatibility
+          total_ieps: totalIeps,          // alias for ProfitsPage compatibility
           net_profit: totalSales - totalCost,
           total_items_sold: parseInt(computed.total_items_sold || 0),
           transactions_count: transactionsCount,
-          total_transactions: transactionsCount
+          total_transactions: transactionsCount // alias for ProfitsPage compatibility
         }
       });
     }
@@ -261,10 +261,10 @@ export const getDailyProfit = async (req, res) => {
       success: true,
       data: {
         ...profit,
-        total_costs: totalCost,
-        total_iva: totalIva,
-        total_ieps: totalIeps,
-        total_transactions: transactionsCount
+        total_costs: totalCost,          // alias for ProfitsPage compatibility
+        total_iva: totalIva,             // alias for ProfitsPage compatibility
+        total_ieps: totalIeps,           // alias for ProfitsPage compatibility
+        total_transactions: transactionsCount // alias for ProfitsPage compatibility
       }
     });
   } catch (error) {

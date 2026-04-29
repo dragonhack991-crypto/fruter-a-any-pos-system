@@ -169,8 +169,9 @@ export default function PosPage() {
   // Fallback: if no product-level tax flags, use global taxRate
   const hasPerProductTax = cart.some(i => i.is_iva !== undefined || i.is_ieps !== undefined);
   const taxableAmount = subtotal - discountAmount;
-  const tax = hasPerProductTax ? taxIva + taxIeps : taxableAmount * taxRate;
-  const total = taxableAmount + (hasPerProductTax ? taxIva + taxIeps : tax);
+  const finalTax = hasPerProductTax ? taxIva + taxIeps : taxableAmount * taxRate;
+  const tax = finalTax; // kept for payment form display
+  const total = taxableAmount + finalTax;
 
   // --- Checkout ---
   const handleCheckout = () => {
