@@ -34,7 +34,7 @@ export const getSettings = async (req, res) => {
 
     try {
       const [settings] = await connection.query(
-        `SELECT storeName, currency, language, theme, tax_rate FROM app_settings LIMIT 1`
+        `SELECT storeName, currency, language, theme, tax_rate, logo_url FROM app_settings LIMIT 1`
       );
       if (settings && settings.length > 0) {
         appSettings = { ...appSettings, ...settings[0] };
@@ -202,19 +202,19 @@ export const changePassword = async (req, res) => {
 export const updateAppSettings = async (req, res) => {
   let connection;
   try {
-    const { storeName, currency, language, theme } = req.body;
+    const { storeName, currency, language, theme, logo_url } = req.body;
 
     connection = await pool.getConnection();
 
     const [result] = await connection.query(
-      `UPDATE app_settings SET storeName = ?, currency = ?, language = ?, theme = ?`,
-      [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light']
+      `UPDATE app_settings SET storeName = ?, currency = ?, language = ?, theme = ?, logo_url = ?`,
+      [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light', logo_url || null]
     );
 
     if (result.affectedRows === 0) {
       await connection.query(
-        `INSERT INTO app_settings (storeName, currency, language, theme) VALUES (?, ?, ?, ?)`,
-        [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light']
+        `INSERT INTO app_settings (storeName, currency, language, theme, logo_url) VALUES (?, ?, ?, ?, ?)`,
+        [storeName || 'Frutería Any', currency || 'USD', language || 'es', theme || 'light', logo_url || null]
       );
     }
 

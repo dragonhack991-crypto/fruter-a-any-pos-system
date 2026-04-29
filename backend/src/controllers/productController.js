@@ -365,6 +365,7 @@ export const getTopProducts = async (req, res) => {
          p.has_tax,
          p.is_iva,
          p.is_ieps,
+         p.ieps_rate,
          p.rotation_score,
          pc.name as category_name,
          u.symbol as unit_symbol,

@@ -4,39 +4,45 @@ export const getPurchases = async (req, res) => {
   try {
     const query = `
       SELECT 
-        p.*,
-        s.name as supplier_name,
-        u.full_name as created_by_name,
-        GROUP_CONCAT(
-          JSON_OBJECT(
-            'id', pi.id,
-            'product_id', pi.product_id,
-            'product_name', pr.name,
-            'quantity', pi.quantity,
-            'unit_cost', pi.unit_cost,
-            'subtotal', pi.subtotal
-          )
-        ) as items
+        p.id,
+        p.purchase_number,
+        p.provider_id as supplier_id,
+        p.user_id,
+        p.subtotal,
+        p.tax,
+        p.total_amount,
+        p.status,
+        p.notes,
+        p.created_at,
+        p.expected_delivery_date,
+        p.actual_delivery_date,
+        pr.name as supplier_name,
+        pr.name as provider_name,
+        u.full_name as user_name
       FROM purchases p
-      JOIN suppliers s ON p.supplier_id = s.id
-      LEFT JOIN users u ON p.created_by = u.id
-      LEFT JOIN purchase_items pi ON p.id = pi.purchase_id
-      LEFT JOIN products pr ON pi.product_id = pr.id
-      WHERE p.is_active = 1
-      GROUP BY p.id
+      LEFT JOIN providers pr ON p.provider_id = pr.id
+      LEFT JOIN users u ON p.user_id = u.id
       ORDER BY p.created_at DESC
     `;
     
     const [purchases] = await db.query(query);
+
+    // Obtener items de cada compra
+    for (const purchase of purchases) {
+      const [items] = await db.query(
+        `SELECT pd.id, pd.product_id, pd.quantity_ordered as quantity, pd.unit_price as unit_cost,
+                pd.total_price as subtotal, pr.name as product_name
+         FROM purchase_details pd
+         JOIN products pr ON pd.product_id = pr.id
+         WHERE pd.purchase_id = ?`,
+        [purchase.id]
+      );
+      purchase.items = items;
+    }
     
-    const formattedPurchases = purchases.map(p => ({
-      ...p,
-      items: p.items ? JSON.parse(`[${p.items}]`) : []
-    }));
-    
-    res.json({ success: true, data: formattedPurchases });
+    res.json({ success: true, data: purchases });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error getPurchases:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -45,10 +51,10 @@ export const getPurchaseById = async (req, res) => {
   try {
     const { id } = req.params;
     const query = `
-      SELECT p.*, s.name as supplier_name
+      SELECT p.*, pr.name as supplier_name, pr.name as provider_name
       FROM purchases p
-      JOIN suppliers s ON p.supplier_id = s.id
-      WHERE p.id = ? AND p.is_active = 1
+      LEFT JOIN providers pr ON p.provider_id = pr.id
+      WHERE p.id = ?
     `;
     
     const [[purchase]] = await db.query(query, [id]);
@@ -58,14 +64,15 @@ export const getPurchaseById = async (req, res) => {
     }
     
     const [items] = await db.query(`
-      SELECT pi.*, pr.name as product_name
-      FROM purchase_items pi
-      JOIN products pr ON pi.product_id = pr.id
-      WHERE pi.purchase_id = ?
+      SELECT pd.*, pr.name as product_name
+      FROM purchase_details pd
+      JOIN products pr ON pd.product_id = pr.id
+      WHERE pd.purchase_id = ?
     `, [id]);
     
     res.json({ success: true, data: { ...purchase, items } });
   } catch (error) {
+    console.error('Error getPurchaseById:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -75,9 +82,16 @@ export const createPurchase = async (req, res) => {
   try {
     await conn.beginTransaction();
     
-    const { supplier_id, purchase_date, items, notes } = req.body;
+    // Frontend sends supplier_id; map to provider_id for DB
+    const { supplier_id, items, notes } = req.body;
+    const providerId = supplier_id;
     const userId = req.user.id;
     
+    if (!providerId || !items || items.length === 0) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, error: 'Proveedor e items son requeridos' });
+    }
+
     // Generar número de compra
     const [[lastPurchase]] = await conn.query(
       'SELECT MAX(CAST(SUBSTRING(purchase_number, 5) AS UNSIGNED)) as last_num FROM purchases'
@@ -87,20 +101,20 @@ export const createPurchase = async (req, res) => {
     // Calcular total
     const total = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
     
-    // Insertar compra
+    // Insertar compra (provider_id, user_id, subtotal, total_amount, notes)
     const [purchaseResult] = await conn.query(
-      'INSERT INTO purchases (purchase_number, supplier_id, purchase_date, total_amount, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-      [purchaseNumber, supplier_id, purchase_date, total, notes, userId]
+      'INSERT INTO purchases (purchase_number, provider_id, user_id, subtotal, total_amount, notes) VALUES (?, ?, ?, ?, ?, ?)',
+      [purchaseNumber, providerId, userId, total, total, notes || '']
     );
     
     const purchaseId = purchaseResult.insertId;
     
-    // Insertar items
+    // Insertar items en purchase_details y actualizar inventario
     for (const item of items) {
-      const subtotal = item.quantity * item.unit_cost;
+      const itemTotal = item.quantity * item.unit_cost;
       await conn.query(
-        'INSERT INTO purchase_items (purchase_id, product_id, quantity, unit_cost, subtotal) VALUES (?, ?, ?, ?, ?)',
-        [purchaseId, item.product_id, item.quantity, item.unit_cost, subtotal]
+        'INSERT INTO purchase_details (purchase_id, product_id, quantity_ordered, unit_price, total_price) VALUES (?, ?, ?, ?, ?)',
+        [purchaseId, item.product_id, item.quantity, item.unit_cost, itemTotal]
       );
       
       // Actualizar inventario
@@ -114,6 +128,7 @@ export const createPurchase = async (req, res) => {
     res.json({ success: true, data: { id: purchaseId, purchase_number: purchaseNumber } });
   } catch (error) {
     await conn.rollback();
+    console.error('Error createPurchase:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     conn.release();
@@ -126,11 +141,13 @@ export const updatePurchase = async (req, res) => {
     await conn.beginTransaction();
     
     const { id } = req.params;
-    const { supplier_id, purchase_date, items, notes } = req.body;
+    // Frontend sends supplier_id; map to provider_id for DB
+    const { supplier_id, items, notes } = req.body;
+    const providerId = supplier_id;
     
-    // Obtener compra anterior para revertir inventario
+    // Obtener items anteriores para revertir inventario
     const [oldItems] = await conn.query(
-      'SELECT * FROM purchase_items WHERE purchase_id = ?',
+      'SELECT * FROM purchase_details WHERE purchase_id = ?',
       [id]
     );
     
@@ -138,26 +155,26 @@ export const updatePurchase = async (req, res) => {
     for (const oldItem of oldItems) {
       await conn.query(
         'UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?',
-        [oldItem.quantity, oldItem.product_id]
+        [oldItem.quantity_ordered, oldItem.product_id]
       );
     }
     
     // Actualizar compra
     const total = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
     await conn.query(
-      'UPDATE purchases SET supplier_id = ?, purchase_date = ?, total_amount = ?, notes = ? WHERE id = ?',
-      [supplier_id, purchase_date, total, notes, id]
+      'UPDATE purchases SET provider_id = ?, total_amount = ?, subtotal = ?, notes = ? WHERE id = ?',
+      [providerId, total, total, notes || '', id]
     );
     
     // Eliminar items anteriores
-    await conn.query('DELETE FROM purchase_items WHERE purchase_id = ?', [id]);
+    await conn.query('DELETE FROM purchase_details WHERE purchase_id = ?', [id]);
     
     // Insertar nuevos items y actualizar inventario
     for (const item of items) {
-      const subtotal = item.quantity * item.unit_cost;
+      const itemTotal = item.quantity * item.unit_cost;
       await conn.query(
-        'INSERT INTO purchase_items (purchase_id, product_id, quantity, unit_cost, subtotal) VALUES (?, ?, ?, ?, ?)',
-        [id, item.product_id, item.quantity, item.unit_cost, subtotal]
+        'INSERT INTO purchase_details (purchase_id, product_id, quantity_ordered, unit_price, total_price) VALUES (?, ?, ?, ?, ?)',
+        [id, item.product_id, item.quantity, item.unit_cost, itemTotal]
       );
       
       await conn.query(
@@ -170,6 +187,7 @@ export const updatePurchase = async (req, res) => {
     res.json({ success: true, message: 'Compra actualizada' });
   } catch (error) {
     await conn.rollback();
+    console.error('Error updatePurchase:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     conn.release();
@@ -185,7 +203,7 @@ export const deletePurchase = async (req, res) => {
     
     // Obtener items para revertir inventario
     const [items] = await conn.query(
-      'SELECT * FROM purchase_items WHERE purchase_id = ?',
+      'SELECT * FROM purchase_details WHERE purchase_id = ?',
       [id]
     );
     
@@ -193,17 +211,18 @@ export const deletePurchase = async (req, res) => {
     for (const item of items) {
       await conn.query(
         'UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?',
-        [item.quantity, item.product_id]
+        [item.quantity_ordered, item.product_id]
       );
     }
     
-    // Marcar como inactiva
-    await conn.query('UPDATE purchases SET is_active = 0 WHERE id = ?', [id]);
+    // Marcar compra como cancelada
+    await conn.query("UPDATE purchases SET status = 'cancelled' WHERE id = ?", [id]);
     
     await conn.commit();
     res.json({ success: true, message: 'Compra eliminada' });
   } catch (error) {
     await conn.rollback();
+    console.error('Error deletePurchase:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     conn.release();

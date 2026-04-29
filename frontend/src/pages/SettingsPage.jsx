@@ -14,7 +14,8 @@ export default function SettingsPage() {
     storeName: '',
     currency: 'MXN',
     language: 'es',
-    theme: 'light'
+    theme: 'light',
+    logo_url: ''
   });
 
   // Tax Settings
@@ -69,6 +70,19 @@ export default function SettingsPage() {
       ...prev,
       [name]: value
     }));
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setGeneralSettings(prev => ({
+        ...prev,
+        logo_url: event.target.result
+      }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleTaxChange = (e) => {
@@ -296,6 +310,35 @@ export default function SettingsPage() {
                 <option value="dark">Oscuro</option>
                 <option value="auto">Automático</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Logo de la Tienda
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {generalSettings.logo_url && (
+                <div className="mt-3">
+                  <p className="text-sm text-gray-600 mb-2">Vista previa:</p>
+                  <img
+                    src={generalSettings.logo_url}
+                    alt="Logo"
+                    className="h-20 object-contain border rounded-lg p-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setGeneralSettings(prev => ({ ...prev, logo_url: '' }))}
+                    className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  >
+                    Eliminar logo
+                  </button>
+                </div>
+              )}
             </div>
 
             <button
