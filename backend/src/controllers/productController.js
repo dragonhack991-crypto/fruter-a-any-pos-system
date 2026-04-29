@@ -6,7 +6,7 @@ export const createProduct = async (req, res) => {
     const {
       name, description, category_id, unit_id, barcode,
       is_perishable, shelf_life_days, unit_price,
-      sale_type, unit_cost, has_tax
+      sale_type, unit_cost, has_tax, is_iva, is_ieps, ieps_rate
     } = req.body;
 
     if (!name || !category_id || !unit_id || !unit_price) {
@@ -16,13 +16,17 @@ export const createProduct = async (req, res) => {
     connection = await pool.getConnection();
 
     const [result] = await connection.query(
-      `INSERT INTO products (name, description, category_id, unit_id, barcode, is_perishable, shelf_life_days, unit_price, sale_type, unit_cost, has_tax, is_active) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO products (name, description, category_id, unit_id, barcode, is_perishable, shelf_life_days, unit_price, sale_type, unit_cost, has_tax, is_iva, is_ieps, ieps_rate, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name, description || '', category_id, unit_id, barcode || null,
         is_perishable || false, shelf_life_days || 0, unit_price,
         sale_type || 'unidad', parseFloat(unit_cost) || 0,
-        has_tax !== undefined ? has_tax : true, 1
+        has_tax !== undefined ? has_tax : true,
+        is_iva !== undefined ? (is_iva ? 1 : 0) : 1,
+        is_ieps !== undefined ? (is_ieps ? 1 : 0) : 0,
+        parseFloat(ieps_rate) || 0,
+        1
       ]
     );
 

@@ -27,10 +27,6 @@ export default function ProfitsPage() {
   // Tab activo
   const [activeTab, setActiveTab] = useState('daily');
 
-  useEffect(() => {
-    loadDailyProfit();
-  }, [selectedDate]);
-
   const loadDailyProfit = async () => {
     try {
       setLoading(true);
@@ -45,6 +41,18 @@ export default function ProfitsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadDailyProfit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
+
+  useEffect(() => {
+    const handleSalesUpdated = () => loadDailyProfit();
+    window.addEventListener('salesUpdated', handleSalesUpdated);
+    return () => window.removeEventListener('salesUpdated', handleSalesUpdated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate]);
 
   const loadPeriodProfits = async () => {
     try {
