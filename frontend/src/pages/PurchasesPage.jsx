@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { getPurchases, createPurchase, deletePurchase, getSuppliers, getProducts } from '../services/api.js';
+import { getPurchases, createPurchase, deletePurchase, getProviders, getProducts } from '../services/api.js';
 import { Trash2, Plus, X, ChevronDown, Search, QrCode } from 'lucide-react';
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [providers, setProviders] = useState([]);
   const [products, setProducts] = useState([]);
   const [units, setUnits] = useState([
     { id: 1, name: 'Kilogramo', symbol: 'kg' },
@@ -23,9 +23,9 @@ export default function PurchasesPage() {
   const scannerRef = useRef(null);
   
   const [purchaseForm, setPurchaseForm] = useState({
-    supplier_id: '',
+    provider_id: '',
     purchase_date: new Date().toISOString().split('T')[0],
-    items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }],
+    items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '', is_ieps: false, ieps_rate: 0 }],
     notes: ''
   });
 
@@ -47,14 +47,14 @@ export default function PurchasesPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [purchasesRes, suppliersRes, productsRes] = await Promise.all([
+      const [purchasesRes, providersRes, productsRes] = await Promise.all([
         getPurchases(),
-        getSuppliers(),
+        getProviders(),
         getProducts()
       ]);
       
       setPurchases(purchasesRes.data.data || []);
-      setSuppliers(suppliersRes.data.data || []);
+      setProviders(providersRes.data.data || []);
       setProducts(productsRes.data.data || []);
     } catch (err) {
       setError('Error cargando datos');
@@ -103,7 +103,9 @@ export default function PurchasesPage() {
         barcode: foundProduct.barcode,
         unit_id: foundProduct.unit_id || 1,
         quantity: '1',
-        unit_cost: foundProduct.unit_cost || ''
+        unit_cost: foundProduct.unit_cost || '',
+        is_ieps: false,
+        ieps_rate: 0
       };
       setPurchaseForm({
         ...purchaseForm,
@@ -121,7 +123,7 @@ export default function PurchasesPage() {
   const handleAddItem = () => {
     setPurchaseForm({
       ...purchaseForm,
-      items: [...purchaseForm.items, { product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }]
+      items: [...purchaseForm.items, { product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '', is_ieps: false, ieps_rate: 0 }]
     });
   };
 
@@ -192,7 +194,7 @@ export default function PurchasesPage() {
     setError('');
     setSuccess('');
 
-    if (!purchaseForm.supplier_id) {
+    if (!purchaseForm.provider_id) {
       setError('⚠️ Debe seleccionar un proveedor');
       return;
     }
@@ -208,12 +210,14 @@ export default function PurchasesPage() {
 
     try {
       const dataToSend = {
-        supplier_id: parseInt(purchaseForm.supplier_id),
+        provider_id: parseInt(purchaseForm.provider_id),
         purchase_date: purchaseForm.purchase_date,
         items: validItems.map(item => ({
           product_id: parseInt(item.product_id),
           quantity: parseFloat(item.quantity),
-          unit_cost: parseFloat(item.unit_cost)
+          unit_price: parseFloat(item.unit_cost),
+          is_ieps: item.is_ieps ? 1 : 0,
+          ieps_rate: item.is_ieps ? parseFloat(item.ieps_rate) || 0 : 0
         })),
         notes: purchaseForm.notes,
         expected_delivery_date: null
@@ -245,9 +249,9 @@ export default function PurchasesPage() {
 
   const resetPurchaseForm = () => {
     setPurchaseForm({
-      supplier_id: '',
+      provider_id: '',
       purchase_date: new Date().toISOString().split('T')[0],
-      items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }],
+      items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '', is_ieps: false, ieps_rate: 0 }],
       notes: ''
     });
     setProductSearch({});
@@ -315,14 +319,14 @@ export default function PurchasesPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Proveedor *</label>
                 <select
-                  value={purchaseForm.supplier_id}
-                  onChange={(e) => setPurchaseForm({...purchaseForm, supplier_id: e.target.value})}
+                  value={purchaseForm.provider_id}
+                  onChange={(e) => setPurchaseForm({...purchaseForm, provider_id: e.target.value})}
                   required
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Selecciona un proveedor</option>
-                  {suppliers.map(sup => (
-                    <option key={sup.id} value={sup.id}>{sup.name}</option>
+                  {providers.map(prov => (
+                    <option key={prov.id} value={prov.id}>{prov.name}</option>
                   ))}
                 </select>
               </div>
@@ -557,6 +561,34 @@ export default function PurchasesPage() {
                       <Trash2 size={18} />
                     </button>
                   </div>
+
+                  {/* IEPS */}
+                  <div className="mt-2 flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={item.is_ieps || false}
+                        onChange={(e) => handleItemChange(index, 'is_ieps', e.target.checked)}
+                        className="w-4 h-4"
+                      />
+                      <span className="font-semibold text-gray-700">Tiene IEPS</span>
+                    </label>
+                    {item.is_ieps && (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={item.ieps_rate || 0}
+                          onChange={(e) => handleItemChange(index, 'ieps_rate', e.target.value)}
+                          placeholder="% IEPS"
+                          className="px-2 py-1 border rounded-lg w-24 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="text-xs text-gray-500">%</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
 
@@ -617,7 +649,8 @@ export default function PurchasesPage() {
               const total = purchase.total_amount || 0;
               const statusColors = {
                 pending: 'bg-yellow-100 text-yellow-800',
-                received: 'bg-green-100 text-green-800',
+                completed: 'bg-green-100 text-green-800',
+                received: 'bg-blue-100 text-blue-800',
                 cancelled: 'bg-red-100 text-red-800'
               };
               
@@ -625,12 +658,15 @@ export default function PurchasesPage() {
                 <tbody key={purchase.id}>
                   <tr className="border-t hover:bg-gray-50">
                     <td className="px-6 py-3 font-bold text-blue-600">{purchase.purchase_number}</td>
-                    <td className="px-6 py-3">{purchase.supplier_name}</td>
-                    <td className="px-6 py-3 text-sm">{new Date(purchase.purchase_date).toLocaleDateString('es-ES')}</td>
+                    <td className="px-6 py-3">{purchase.provider_name}</td>
+                    <td className="px-6 py-3 text-sm">{new Date(purchase.purchase_date || purchase.created_at).toLocaleDateString('es-ES')}</td>
                     <td className="px-6 py-3 font-bold text-green-600">${parseFloat(total).toFixed(2)}</td>
                     <td className="px-6 py-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[purchase.status] || 'bg-gray-100 text-gray-800'}`}>
-                        {purchase.status === 'pending' ? '⏳ Pendiente' : purchase.status === 'received' ? '✅ Recibida' : '❌ Cancelada'}
+                        {purchase.status === 'pending' ? '⏳ Pendiente'
+                          : purchase.status === 'completed' ? '✅ Completada'
+                          : purchase.status === 'received' ? '📦 Recibida'
+                          : '❌ Cancelada'}
                       </span>
                     </td>
                     <td className="px-6 py-3 text-right">
