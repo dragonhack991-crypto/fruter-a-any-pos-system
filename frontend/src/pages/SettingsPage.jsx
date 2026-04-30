@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { getSettings, updateAppSettings, getTaxSettings, updateTaxSettings, changePassword } from '../services/api.js';
-import { Save, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { getSettings, updateAppSettings, getTaxSettings, updateTaxSettings, changePassword, getLogo, uploadLogo } from '../services/api.js';
+import { Save, Eye, EyeOff, AlertCircle, Check, Upload, Image } from 'lucide-react';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -32,9 +32,27 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
+  // Logo
+  const [currentLogo, setCurrentLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoLoading, setLogoLoading] = useState(false);
+  const logoInputRef = useRef(null);
+
   useEffect(() => {
     loadSettings();
+    loadCurrentLogo();
   }, []);
+
+  const loadCurrentLogo = async () => {
+    try {
+      const res = await getLogo();
+      if (res.data.success && res.data.data.logo) {
+        setCurrentLogo(res.data.data.logo);
+      }
+    } catch {
+      // Logo not set yet
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -58,6 +76,51 @@ export default function SettingsPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLogoFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Solo se permiten imágenes JPG, PNG, GIF o WebP');
+      return;
+    }
+
+    // Validate file size (max 1MB)
+    if (file.size > 1 * 1024 * 1024) {
+      setError('El logo no puede superar 1MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setLogoPreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveLogo = async () => {
+    if (!logoPreview) {
+      setError('Selecciona una imagen primero');
+      return;
+    }
+    try {
+      setError('');
+      setLogoLoading(true);
+      await uploadLogo(logoPreview);
+      setCurrentLogo(logoPreview);
+      setLogoPreview(null);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+      setSuccess('✅ Logo guardado exitosamente');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error guardando logo');
+    } finally {
+      setLogoLoading(false);
     }
   };
 
@@ -194,37 +257,25 @@ export default function SettingsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b">
-        <button
-          onClick={() => setActiveTab('general')}
-          className={`px-4 py-2 font-semibold transition ${
-            activeTab === 'general'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          General
-        </button>
-        <button
-          onClick={() => setActiveTab('taxes')}
-          className={`px-4 py-2 font-semibold transition ${
-            activeTab === 'taxes'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Impuestos
-        </button>
-        <button
-          onClick={() => setActiveTab('password')}
-          className={`px-4 py-2 font-semibold transition ${
-            activeTab === 'password'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          Contraseña
-        </button>
+      <div className="flex flex-wrap gap-2 mb-6 border-b">
+        {[
+          { id: 'general', label: 'General' },
+          { id: 'logo', label: '🖼️ Logo' },
+          { id: 'taxes', label: 'Impuestos' },
+          { id: 'password', label: 'Contraseña' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 font-semibold transition ${
+              activeTab === tab.id
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* GENERAL SETTINGS */}
@@ -303,6 +354,62 @@ export default function SettingsPage() {
               <Save size={20} /> Guardar Configuración
             </button>
           </form>
+        </div>
+      )}
+
+      {/* LOGO SETTINGS */}
+      {activeTab === 'logo' && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">🖼️ Logo de la Tienda</h2>
+
+          <div className="space-y-6">
+            {/* Current logo preview */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-3">Logo Actual</label>
+              <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                {currentLogo ? (
+                  <img src={currentLogo} alt="Logo actual" className="w-full h-full object-contain rounded-lg" />
+                ) : (
+                  <div className="text-center text-gray-400">
+                    <Image size={40} className="mx-auto mb-2" />
+                    <p className="text-xs">Sin logo</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Upload new logo */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Subir Nuevo Logo</label>
+              <p className="text-xs text-gray-500 mb-3">Formatos permitidos: JPG, PNG, GIF, WebP. Máximo 1MB.</p>
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleLogoFileChange}
+                className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+              />
+            </div>
+
+            {/* Preview of new logo */}
+            {logoPreview && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Vista Previa</label>
+                <div className="w-32 h-32 border-2 border-blue-300 rounded-lg overflow-hidden bg-gray-50">
+                  <img src={logoPreview} alt="Vista previa" className="w-full h-full object-contain" />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveLogo}
+              disabled={!logoPreview || logoLoading}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold transition"
+            >
+              <Upload size={20} /> {logoLoading ? 'Guardando...' : 'Guardar Logo'}
+            </button>
+          </div>
         </div>
       )}
 

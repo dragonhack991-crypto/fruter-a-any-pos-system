@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getPurchases, createPurchase, deletePurchase, getSuppliers, getProducts } from '../services/api.js';
+import { getPurchases, createPurchase, deletePurchase, getProviders, getProducts } from '../services/api.js';
 import { Trash2, Plus, X, ChevronDown, Search, QrCode } from 'lucide-react';
 
 export default function PurchasesPage() {
@@ -23,9 +23,9 @@ export default function PurchasesPage() {
   const scannerRef = useRef(null);
   
   const [purchaseForm, setPurchaseForm] = useState({
-    supplier_id: '',
+    provider_id: '',
     purchase_date: new Date().toISOString().split('T')[0],
-    items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }],
+    items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_price: '', is_ieps: false, ieps_rate: 8 }],
     notes: ''
   });
 
@@ -49,7 +49,7 @@ export default function PurchasesPage() {
       setLoading(true);
       const [purchasesRes, suppliersRes, productsRes] = await Promise.all([
         getPurchases(),
-        getSuppliers(),
+        getProviders(),
         getProducts()
       ]);
       
@@ -103,7 +103,9 @@ export default function PurchasesPage() {
         barcode: foundProduct.barcode,
         unit_id: foundProduct.unit_id || 1,
         quantity: '1',
-        unit_cost: foundProduct.unit_cost || ''
+        unit_price: foundProduct.unit_cost || '',
+        is_ieps: foundProduct.is_ieps || false,
+        ieps_rate: foundProduct.ieps_rate || 8
       };
       setPurchaseForm({
         ...purchaseForm,
@@ -121,7 +123,7 @@ export default function PurchasesPage() {
   const handleAddItem = () => {
     setPurchaseForm({
       ...purchaseForm,
-      items: [...purchaseForm.items, { product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }]
+      items: [...purchaseForm.items, { product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_price: '', is_ieps: false, ieps_rate: 8 }]
     });
   };
 
@@ -192,13 +194,13 @@ export default function PurchasesPage() {
     setError('');
     setSuccess('');
 
-    if (!purchaseForm.supplier_id) {
+    if (!purchaseForm.provider_id) {
       setError('⚠️ Debe seleccionar un proveedor');
       return;
     }
 
     const validItems = purchaseForm.items.filter(item => 
-      item.product_id && parseFloat(item.quantity) > 0 && parseFloat(item.unit_cost) > 0
+      item.product_id && parseFloat(item.quantity) > 0 && parseFloat(item.unit_price) > 0
     );
 
     if (validItems.length === 0) {
@@ -208,12 +210,13 @@ export default function PurchasesPage() {
 
     try {
       const dataToSend = {
-        supplier_id: parseInt(purchaseForm.supplier_id),
-        purchase_date: purchaseForm.purchase_date,
+        provider_id: parseInt(purchaseForm.provider_id),
         items: validItems.map(item => ({
           product_id: parseInt(item.product_id),
           quantity: parseFloat(item.quantity),
-          unit_cost: parseFloat(item.unit_cost)
+          unit_price: parseFloat(item.unit_price),
+          is_ieps: item.is_ieps || false,
+          ieps_rate: parseFloat(item.ieps_rate) || 0
         })),
         notes: purchaseForm.notes,
         expected_delivery_date: null
@@ -245,9 +248,9 @@ export default function PurchasesPage() {
 
   const resetPurchaseForm = () => {
     setPurchaseForm({
-      supplier_id: '',
+      provider_id: '',
       purchase_date: new Date().toISOString().split('T')[0],
-      items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_cost: '' }],
+      items: [{ product_id: '', product_name: '', barcode: '', unit_id: 1, quantity: '', unit_price: '', is_ieps: false, ieps_rate: 8 }],
       notes: ''
     });
     setProductSearch({});
@@ -266,7 +269,7 @@ export default function PurchasesPage() {
 
   const totalAmount = purchaseForm.items.reduce((sum, item) => {
     const qty = parseFloat(item.quantity) || 0;
-    const cost = parseFloat(item.unit_cost) || 0;
+    const cost = parseFloat(item.unit_price) || 0;
     return sum + (qty * cost);
   }, 0);
 
@@ -315,8 +318,8 @@ export default function PurchasesPage() {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Proveedor *</label>
                 <select
-                  value={purchaseForm.supplier_id}
-                  onChange={(e) => setPurchaseForm({...purchaseForm, supplier_id: e.target.value})}
+                  value={purchaseForm.provider_id}
+                  onChange={(e) => setPurchaseForm({...purchaseForm, provider_id: e.target.value})}
                   required
                   className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
@@ -532,8 +535,8 @@ export default function PurchasesPage() {
                           step="0.01"
                           min="0.01"
                           placeholder="0.00"
-                          value={item.unit_cost}
-                          onChange={(e) => handleItemChange(index, 'unit_cost', e.target.value)}
+                          value={item.unit_price}
+                          onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                           required
                           className="w-full pl-6 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
                         />
@@ -544,7 +547,7 @@ export default function PurchasesPage() {
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Subtotal</label>
                       <div className="px-3 py-2 bg-gray-100 rounded-lg font-bold text-green-600 text-xs">
-                        ${((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_cost) || 0)).toFixed(2)}
+                        ${((parseFloat(item.quantity) || 0) * (parseFloat(item.unit_price) || 0)).toFixed(2)}
                       </div>
                     </div>
 
@@ -556,6 +559,36 @@ export default function PurchasesPage() {
                     >
                       <Trash2 size={18} />
                     </button>
+                  </div>
+
+                  {/* IEPS Row */}
+                  <div className="mt-2 flex items-center gap-4 bg-orange-50 rounded-lg px-3 py-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={item.is_ieps || false}
+                        onChange={(e) => handleItemChange(index, 'is_ieps', e.target.checked)}
+                        className="w-4 h-4 accent-orange-500"
+                      />
+                      <span className="text-sm font-semibold text-orange-700">IEPS</span>
+                    </label>
+                    {item.is_ieps && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-orange-600 font-semibold">Tasa IEPS (%):</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="100"
+                          value={item.ieps_rate || 8}
+                          onChange={(e) => handleItemChange(index, 'ieps_rate', e.target.value)}
+                          className="w-20 px-2 py-1 border border-orange-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-orange-400"
+                        />
+                      </div>
+                    )}
+                    {!item.is_ieps && (
+                      <span className="text-xs text-gray-500">Sin IEPS (aplica IVA 12%)</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -625,8 +658,8 @@ export default function PurchasesPage() {
                 <tbody key={purchase.id}>
                   <tr className="border-t hover:bg-gray-50">
                     <td className="px-6 py-3 font-bold text-blue-600">{purchase.purchase_number}</td>
-                    <td className="px-6 py-3">{purchase.supplier_name}</td>
-                    <td className="px-6 py-3 text-sm">{new Date(purchase.purchase_date).toLocaleDateString('es-ES')}</td>
+                    <td className="px-6 py-3">{purchase.provider_name}</td>
+                    <td className="px-6 py-3 text-sm">{new Date(purchase.created_at).toLocaleDateString('es-ES')}</td>
                     <td className="px-6 py-3 font-bold text-green-600">${parseFloat(total).toFixed(2)}</td>
                     <td className="px-6 py-3">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[purchase.status] || 'bg-gray-100 text-gray-800'}`}>
@@ -658,7 +691,7 @@ export default function PurchasesPage() {
                             {purchase.items?.map((item, idx) => (
                               <div key={idx} className="flex justify-between bg-white p-2 rounded">
                                 <span>{item.product_name}</span>
-                                <span>{item.quantity} × ${parseFloat(item.unit_cost).toFixed(2)} = <strong>${(item.quantity * item.unit_cost).toFixed(2)}</strong></span>
+                                <span>{item.quantity} × ${parseFloat(item.unit_price).toFixed(2)} = <strong>${(item.quantity * item.unit_price).toFixed(2)}</strong></span>
                               </div>
                             ))}
                           </div>
