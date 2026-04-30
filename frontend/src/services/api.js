@@ -102,18 +102,18 @@ export const updatePurchase = (id, purchaseData) =>
 export const deletePurchase = (id) =>
   apiClient.delete(`/purchases/${id}`);
 
-// ============ SUPPLIERS ============
+// ============ PROVIDERS ============
 export const getSuppliers = () =>
-  apiClient.get('/suppliers');
+  apiClient.get('/providers');
 
 export const createSupplier = (supplierData) =>
-  apiClient.post('/suppliers', supplierData);
+  apiClient.post('/providers', supplierData);
 
 export const updateSupplier = (id, supplierData) =>
-  apiClient.put(`/suppliers/${id}`, supplierData);
+  apiClient.put(`/providers/${id}`, supplierData);
 
 export const deleteSupplier = (id) =>
-  apiClient.delete(`/suppliers/${id}`);
+  apiClient.delete(`/providers/${id}`);
 
 // ============ INVENTORY ============
 export const getCurrentInventory = (categoryId, searchTerm) =>
