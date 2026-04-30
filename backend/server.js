@@ -38,6 +38,7 @@ import analyticsRoutes from './src/routes/analyticsRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
 import taxRoutes from './src/routes/taxRoutes.js';
 import cashBoxRoutes from './src/routes/cashBoxRoutes.js';
+import dashboardRoutes from './src/routes/dashboardRoutes.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT) || 3000;
@@ -71,7 +72,8 @@ const routes = [
   { path: '/api/analytics', router: analyticsRoutes, name: 'Analytics' },
   { path: '/api/settings', router: settingsRoutes, name: 'Settings' },
   { path: '/api/taxes', router: taxRoutes, name: 'Taxes' },
-  { path: '/api/cashbox', router: cashBoxRoutes, name: 'CashBox' }
+  { path: '/api/cashbox', router: cashBoxRoutes, name: 'CashBox' },
+  { path: '/api/dashboard', router: dashboardRoutes, name: 'Dashboard' }
 ];
 
 routes.forEach(({ path, router, name }) => {

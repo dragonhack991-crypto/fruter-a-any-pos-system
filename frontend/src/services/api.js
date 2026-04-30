@@ -102,6 +102,9 @@ export const updatePurchase = (id, purchaseData) =>
 export const deletePurchase = (id) =>
   apiClient.delete(`/purchases/${id}`);
 
+export const getProviders = () =>
+  apiClient.get('/purchases/providers/list');
+
 // ============ SUPPLIERS ============
 export const getSuppliers = () =>
   apiClient.get('/suppliers');
@@ -213,5 +216,15 @@ export const getActiveCashBox = () =>
 
 export const getCashBoxHistory = (params = {}) =>
   apiClient.get('/cashbox/history', { params });
+
+// ============ DASHBOARD ============
+export const getDashboardData = () =>
+  apiClient.get('/dashboard');
+
+export const scheduleProviderVisit = (visitData) =>
+  apiClient.post('/dashboard/provider-visits', visitData);
+
+export const deleteProviderVisit = (id) =>
+  apiClient.delete(`/dashboard/provider-visits/${id}`);
 
 export default apiClient;

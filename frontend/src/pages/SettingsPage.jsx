@@ -20,9 +20,7 @@ export default function SettingsPage() {
   // Tax Settings
   const [taxSettings, setTaxSettings] = useState({
     iva_rate: 12,
-    ieps_rate: 0,
-    apply_iva_by_default: true,
-    apply_ieps_by_default: false
+    apply_iva_by_default: true
   });
 
   // Password Settings
@@ -51,7 +49,8 @@ export default function SettingsPage() {
       }
 
       if (taxRes.data.data) {
-        setTaxSettings(taxRes.data.data);
+        const { iva_rate, apply_iva_by_default } = taxRes.data.data;
+        setTaxSettings({ iva_rate: iva_rate ?? 12, apply_iva_by_default: apply_iva_by_default ?? true });
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Error cargando configuración');
@@ -108,10 +107,6 @@ export default function SettingsPage() {
       // Validar rangos
       if (taxSettings.iva_rate < 0 || taxSettings.iva_rate > 100) {
         setError('IVA debe estar entre 0 y 100');
-        return;
-      }
-      if (taxSettings.ieps_rate < 0 || taxSettings.ieps_rate > 100) {
-        setError('IEPS debe estar entre 0 y 100');
         return;
       }
 
@@ -306,47 +301,31 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* TAX SETTINGS */}
       {activeTab === 'taxes' && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">💰 Configuración de Impuestos</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            El IEPS se configura individualmente por producto en el módulo de Compras.
+          </p>
           
           <form onSubmit={handleSaveTax} className="space-y-6">
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tasa IVA (%)
-                </label>
-                <input
-                  type="number"
-                  name="iva_rate"
-                  value={taxSettings.iva_rate}
-                  onChange={handleTaxChange}
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Tasa IEPS (%)
-                </label>
-                <input
-                  type="number"
-                  name="ieps_rate"
-                  value={taxSettings.ieps_rate}
-                  onChange={handleTaxChange}
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Tasa IVA (%)
+              </label>
+              <input
+                type="number"
+                name="iva_rate"
+                value={taxSettings.iva_rate}
+                onChange={handleTaxChange}
+                step="0.01"
+                min="0"
+                max="100"
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-xs"
+              />
             </div>
 
-            <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
+            <div className="bg-blue-50 p-4 rounded-lg">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -356,17 +335,6 @@ export default function SettingsPage() {
                   className="w-4 h-4 rounded"
                 />
                 <span className="font-semibold text-gray-700">Aplicar IVA por defecto en productos nuevos</span>
-              </label>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="apply_ieps_by_default"
-                  checked={taxSettings.apply_ieps_by_default}
-                  onChange={handleTaxChange}
-                  className="w-4 h-4 rounded"
-                />
-                <span className="font-semibold text-gray-700">Aplicar IEPS por defecto en productos nuevos</span>
               </label>
             </div>
 
