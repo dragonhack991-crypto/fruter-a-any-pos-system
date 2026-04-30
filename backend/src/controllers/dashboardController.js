@@ -13,8 +13,8 @@ export const getDashboardData = async (req, res) => {
         p.unit_price as price
       FROM products p
       LEFT JOIN inventory i ON p.id = i.product_id
-      WHERE i.quantity < 5 AND p.is_active = 1
-      ORDER BY i.quantity ASC
+      WHERE COALESCE(i.quantity, 0) < 5 AND p.is_active = 1
+      ORDER BY COALESCE(i.quantity, 0) ASC
       LIMIT 10
     `);
 
