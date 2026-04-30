@@ -32,7 +32,7 @@ import productsRoutes from './src/routes/productsRoutes.js';
 import inventoryRoutes from './src/routes/inventoryAdjustmentRoutes.js';
 import salesRoutes from './src/routes/salesRoutes.js';
 import purchasesRoutes from './src/routes/purchasesRoutes.js';
-import suppliersRoutes from './src/routes/providersRoutes.js';
+import providersRoutes from './src/routes/providersRoutes.js';
 import usersRoutes from './src/routes/usersRoutes.js';
 import analyticsRoutes from './src/routes/analyticsRoutes.js';
 import settingsRoutes from './src/routes/settingsRoutes.js';
@@ -66,7 +66,7 @@ const routes = [
   { path: '/api/inventory', router: inventoryRoutes, name: 'Inventory' },
   { path: '/api/sales', router: salesRoutes, name: 'Sales' },
   { path: '/api/purchases', router: purchasesRoutes, name: 'Purchases' },
-  { path: '/api/suppliers', router: suppliersRoutes, name: 'Suppliers' },
+  { path: '/api/providers', router: providersRoutes, name: 'Providers' },
   { path: '/api/users', router: usersRoutes, name: 'Users' },
   { path: '/api/analytics', router: analyticsRoutes, name: 'Analytics' },
   { path: '/api/settings', router: settingsRoutes, name: 'Settings' },
