@@ -123,11 +123,15 @@ export default function PosPage() {
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      if (e.key === 'Enter' && barcodeBuffer.length >= MIN_BARCODE_LENGTH) {
-        e.preventDefault();
-        handleBarcodeSearch(barcodeBuffer);
-        setBarcodeBuffer('');
-        if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.length >= MIN_BARCODE_LENGTH) {
+          e.preventDefault();
+          handleBarcodeSearch(barcodeBuffer);
+          setBarcodeBuffer('');
+          if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
+        } else {
+          e.preventDefault(); // Prevent unexpected form submissions from short buffers
+        }
         return;
       }
 

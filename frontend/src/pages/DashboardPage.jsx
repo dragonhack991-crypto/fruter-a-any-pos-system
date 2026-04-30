@@ -84,7 +84,7 @@ export default function DashboardPage() {
       )}
 
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-2">¡Bienvenido{user?.full_name ? `, ${user.full_name}` : ''}!</h2>
+        <h2 className="text-xl font-bold text-gray-800 mb-2">¡Bienvenido{user?.full_name ? `, ${user.full_name}` : ' al sistema'}!</h2>
         <p className="text-gray-600">
           Sistema POS completo funcionando. Usa el menú lateral para navegar por las diferentes secciones.
         </p>

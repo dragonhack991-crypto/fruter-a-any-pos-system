@@ -265,13 +265,22 @@ export const uploadLogo = async (req, res) => {
       return res.status(400).json({ success: false, error: 'No se proporcionó imagen' });
     }
 
-    // Validar que sea base64 de imagen válida
+    // Validar que sea base64 de imagen válida con formato correcto
     if (!logo.startsWith('data:image/')) {
       return res.status(400).json({ success: false, error: 'Formato de imagen inválido' });
     }
 
+    // Validar que el string base64 tenga el separador esperado
+    const commaIdx = logo.indexOf(',');
+    if (commaIdx === -1) {
+      return res.status(400).json({ success: false, error: 'Formato de imagen inválido: falta datos base64' });
+    }
+
     // Estimar tamaño: base64 → ~3/4 del tamaño real
-    const base64Data = logo.split(',')[1] || '';
+    const base64Data = logo.slice(commaIdx + 1);
+    if (!base64Data) {
+      return res.status(400).json({ success: false, error: 'Datos de imagen vacíos' });
+    }
     const estimatedBytes = Math.ceil((base64Data.length * 3) / 4);
     const maxBytes = 1 * 1024 * 1024; // 1MB
     if (estimatedBytes > maxBytes) {
