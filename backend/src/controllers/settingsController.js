@@ -282,7 +282,7 @@ export const uploadLogo = async (req, res) => {
 
     const [existing] = await connection.query('SELECT id FROM app_settings LIMIT 1');
     if (existing && existing.length > 0) {
-      await connection.query('UPDATE app_settings SET logo = ? WHERE id = 1', [logo]);
+      await connection.query('UPDATE app_settings SET logo = ? WHERE id = ?', [logo, existing[0].id]);
     } else {
       await connection.query('INSERT INTO app_settings (logo) VALUES (?)', [logo]);
     }

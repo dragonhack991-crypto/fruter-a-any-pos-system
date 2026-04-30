@@ -109,11 +109,19 @@ export default function PosPage() {
 
   useEffect(() => {
     const handleGlobalKeydown = (e) => {
-      // Only intercept if focus is NOT on a form input (except search)
-      const tag = document.activeElement?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-        if (document.activeElement !== searchInputRef.current) return;
+      // When focus is on our search input, only process Enter for barcode
+      if (document.activeElement === searchInputRef.current) {
+        if (e.key === 'Enter' && searchTerm.trim().length >= MIN_BARCODE_LENGTH) {
+          e.preventDefault();
+          handleBarcodeSearch(searchTerm.trim());
+        }
+        // Don't accumulate buffer from search input keys
+        return;
       }
+
+      // Only process if not focused on other form elements
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       if (e.key === 'Enter' && barcodeBuffer.length >= MIN_BARCODE_LENGTH) {
         e.preventDefault();
@@ -137,7 +145,7 @@ export default function PosPage() {
       window.removeEventListener('keydown', handleGlobalKeydown);
       if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
     };
-  }, [barcodeBuffer, handleBarcodeSearch]);
+  }, [barcodeBuffer, handleBarcodeSearch, searchTerm]);
 
   useEffect(() => {
     loadInitialData();

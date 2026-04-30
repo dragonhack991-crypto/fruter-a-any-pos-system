@@ -192,11 +192,9 @@ router.put('/:id', authenticateToken, authorizeRole(['admin', 'manager']), async
     for (const oldItem of oldItems) {
       await conn.query(
         'UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?',
-        [oldItem.quantity, oldItem.product_id]
+        [parseFloat(oldItem.quantity || oldItem.quantity_ordered || 0), oldItem.product_id]
       );
     }
-
-    // Calcular totales
     let subtotal = 0;
     let totalTax = 0;
     for (const item of items) {
@@ -264,7 +262,7 @@ router.delete('/:id', authenticateToken, authorizeRole(['admin', 'manager']), as
     for (const item of items) {
       await conn.query(
         'UPDATE inventory SET quantity = quantity - ? WHERE product_id = ?',
-        [item.quantity, item.product_id]
+        [parseFloat(item.quantity || item.quantity_ordered || 0), item.product_id]
       );
     }
 

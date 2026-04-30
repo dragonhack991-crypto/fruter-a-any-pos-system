@@ -691,7 +691,7 @@ export default function PurchasesPage() {
                             {purchase.items?.map((item, idx) => (
                               <div key={idx} className="flex justify-between bg-white p-2 rounded">
                                 <span>{item.product_name}</span>
-                                <span>{item.quantity} × ${parseFloat(item.unit_price).toFixed(2)} = <strong>${(item.quantity * item.unit_cost).toFixed(2)}</strong></span>
+                                <span>{item.quantity} × ${parseFloat(item.unit_price).toFixed(2)} = <strong>${(item.quantity * item.unit_price).toFixed(2)}</strong></span>
                               </div>
                             ))}
                           </div>

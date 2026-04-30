@@ -205,7 +205,7 @@ router.get('/dashboard-stats', authenticateToken, async (req, res) => {
       SELECT p.name, SUM(si.quantity) as total_qty, SUM(si.total_price) as total_revenue
       FROM sales_items si
       JOIN products p ON si.product_id = p.id
-      WHERE DATE(si.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      WHERE si.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
       GROUP BY si.product_id, p.name
       ORDER BY total_qty DESC
       LIMIT 5
