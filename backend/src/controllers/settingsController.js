@@ -255,3 +255,58 @@ export const updateNotifications = async (req, res) => {
     if (connection) await connection.release();
   }
 };
+
+export const uploadLogo = async (req, res) => {
+  let connection;
+  try {
+    const { logo } = req.body;
+
+    if (!logo) {
+      return res.status(400).json({ success: false, error: 'No se proporcionó imagen' });
+    }
+
+    // Validar que sea base64 de imagen válida
+    if (!logo.startsWith('data:image/')) {
+      return res.status(400).json({ success: false, error: 'Formato de imagen inválido' });
+    }
+
+    // Estimar tamaño: base64 → ~3/4 del tamaño real
+    const base64Data = logo.split(',')[1] || '';
+    const estimatedBytes = Math.ceil((base64Data.length * 3) / 4);
+    const maxBytes = 1 * 1024 * 1024; // 1MB
+    if (estimatedBytes > maxBytes) {
+      return res.status(400).json({ success: false, error: 'La imagen supera el tamaño máximo de 1MB' });
+    }
+
+    connection = await pool.getConnection();
+
+    const [existing] = await connection.query('SELECT id FROM app_settings LIMIT 1');
+    if (existing && existing.length > 0) {
+      await connection.query('UPDATE app_settings SET logo = ? WHERE id = 1', [logo]);
+    } else {
+      await connection.query('INSERT INTO app_settings (logo) VALUES (?)', [logo]);
+    }
+
+    res.json({ success: true, message: '✅ Logo guardado exitosamente', data: { logo } });
+  } catch (error) {
+    console.error('❌ Error en uploadLogo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) await connection.release();
+  }
+};
+
+export const getLogo = async (req, res) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    const [rows] = await connection.query('SELECT logo FROM app_settings LIMIT 1');
+    const logo = rows && rows.length > 0 ? rows[0].logo : null;
+    res.json({ success: true, data: { logo } });
+  } catch (error) {
+    console.error('❌ Error en getLogo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    if (connection) await connection.release();
+  }
+};

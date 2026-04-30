@@ -28,6 +28,18 @@ router.put(
 );
 
 /**
+ * GET /api/settings/logo
+ * Obtener logo actual
+ */
+router.get('/logo', settingsController.getLogo);
+
+/**
+ * POST /api/settings/upload-logo
+ * Subir logo (base64)
+ */
+router.post('/upload-logo', settingsController.uploadLogo);
+
+/**
  * GET /api/settings/profile
  * Obtener perfil del usuario autenticado
  */

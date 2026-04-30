@@ -172,4 +172,60 @@ router.get('/low-stock', authenticateToken, authorizeRole(['admin', 'manager']),
   }
 });
 
+// Dashboard stats (datos reales)
+router.get('/dashboard-stats', authenticateToken, async (req, res) => {
+  try {
+    console.log('📍 GET /analytics/dashboard-stats');
+
+    const today = new Date().toISOString().split('T')[0];
+
+    const [[todayStats]] = await db.query(`
+      SELECT
+        COALESCE(COUNT(*), 0) as salesHoy,
+        COALESCE(SUM(total_amount), 0) as totalHoy
+      FROM sales
+      WHERE DATE(created_at) = ?
+    `, [today]);
+
+    const [[monthStats]] = await db.query(`
+      SELECT COALESCE(COUNT(*), 0) as salesMes
+      FROM sales
+      WHERE YEAR(created_at) = YEAR(NOW()) AND MONTH(created_at) = MONTH(NOW())
+    `);
+
+    const [[productCount]] = await db.query(
+      'SELECT COUNT(*) as totalProducts FROM products WHERE is_active = 1'
+    );
+
+    const [[userCount]] = await db.query(
+      'SELECT COUNT(*) as totalUsers FROM users WHERE is_active = 1'
+    );
+
+    const [topProducts] = await db.query(`
+      SELECT p.name, SUM(si.quantity) as total_qty, SUM(si.total_price) as total_revenue
+      FROM sales_items si
+      JOIN products p ON si.product_id = p.id
+      WHERE DATE(si.created_at) >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      GROUP BY si.product_id, p.name
+      ORDER BY total_qty DESC
+      LIMIT 5
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        salesHoy: parseInt(todayStats?.salesHoy) || 0,
+        totalHoy: parseFloat(todayStats?.totalHoy) || 0,
+        salesMes: parseInt(monthStats?.salesMes) || 0,
+        totalProducts: parseInt(productCount?.totalProducts) || 0,
+        totalUsers: parseInt(userCount?.totalUsers) || 0,
+        topProducts: topProducts || []
+      }
+    });
+  } catch (error) {
+    console.error('❌ ERROR EN GET /analytics/dashboard-stats:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

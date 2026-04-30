@@ -102,18 +102,24 @@ export const updatePurchase = (id, purchaseData) =>
 export const deletePurchase = (id) =>
   apiClient.delete(`/purchases/${id}`);
 
-// ============ SUPPLIERS ============
-export const getSuppliers = () =>
-  apiClient.get('/suppliers');
+// ============ SUPPLIERS / PROVIDERS ============
+export const getProviders = () =>
+  apiClient.get('/providers');
 
-export const createSupplier = (supplierData) =>
-  apiClient.post('/suppliers', supplierData);
+export const createProvider = (providerData) =>
+  apiClient.post('/providers', providerData);
 
-export const updateSupplier = (id, supplierData) =>
-  apiClient.put(`/suppliers/${id}`, supplierData);
+export const updateProvider = (id, providerData) =>
+  apiClient.put(`/providers/${id}`, providerData);
 
-export const deleteSupplier = (id) =>
-  apiClient.delete(`/suppliers/${id}`);
+export const deleteProvider = (id) =>
+  apiClient.delete(`/providers/${id}`);
+
+// Keep backward-compat aliases
+export const getSuppliers = getProviders;
+export const createSupplier = createProvider;
+export const updateSupplier = updateProvider;
+export const deleteSupplier = deleteProvider;
 
 // ============ INVENTORY ============
 export const getCurrentInventory = (categoryId, searchTerm) =>
@@ -173,6 +179,12 @@ export const updateAppSettings = (data) =>
 export const updateNotifications = (data) =>
   apiClient.put('/settings/notifications', data);
 
+export const getLogo = () =>
+  apiClient.get('/settings/logo');
+
+export const uploadLogo = (logo) =>
+  apiClient.post('/settings/upload-logo', { logo });
+
 export const getTaxSettings = () =>
   apiClient.get('/taxes/settings');
 
@@ -200,6 +212,9 @@ export const getSalesByUser = () =>
 
 export const getLowStock = () =>
   apiClient.get('/analytics/low-stock');
+
+export const getDashboardStats = () =>
+  apiClient.get('/analytics/dashboard-stats');
 
 // ============ CASH BOX ============
 export const openCashBox = (opening_amount) =>

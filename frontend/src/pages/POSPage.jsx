@@ -1,13 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   getTopProducts, getProducts, createSale, getSettings,
-  getActiveCashBox
+  getActiveCashBox, getProductByBarcode
 } from '../services/api.js';
 import { ShoppingCart, Search, Trash2, Plus, Minus, X, Star, Scale, Unlock, Lock, RefreshCw } from 'lucide-react';
 import CashBoxModal from '../components/CashBoxModal.jsx';
 import BulkSaleModal from '../components/BulkSaleModal.jsx';
 
 const BULK_TYPES = ['kilogramo', 'gramo', 'litro', 'ml'];
+
+const MIN_BARCODE_LENGTH = 3;
+const BARCODE_BUFFER_TIMEOUT_MS = 500;
 
 const SALE_TYPE_BADGE = {
   kilogramo: { label: 'kg', color: 'bg-blue-100 text-blue-700' },
@@ -43,16 +46,98 @@ export default function PosPage() {
   // --- Bulk Sale ---
   const [bulkProduct, setBulkProduct] = useState(null);
 
+  // --- Barcode scanner ---
+  const [barcodeBuffer, setBarcodeBuffer] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const barcodeTimer = useRef(null);
+  const searchInputRef = useRef(null);
+
   // Counter for unique cart keys
   const cartKeyCounter = useRef(0);
 
-  // Debounce search
+  // Debounce search + suggestions
   const searchTimer = useRef(null);
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    searchTimer.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      // Update suggestions from allProducts or topProducts
+      if (searchTerm.length >= 1) {
+        const pool = allProducts.length > 0 ? allProducts : topProducts;
+        const suggestions = pool.filter(p =>
+          p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (p.barcode && p.barcode.includes(searchTerm))
+        ).slice(0, 6);
+        setSearchSuggestions(suggestions);
+        setShowSuggestions(suggestions.length > 0);
+      } else {
+        setSearchSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
     return () => clearTimeout(searchTimer.current);
-  }, [searchTerm]);
+  }, [searchTerm, allProducts, topProducts]);
+
+  // Hardware barcode scanner detection (global keydown)
+  const addNormalToCartRef = useRef(null);
+  const handleBarcodeSearch = useCallback(async (barcode) => {
+    if (!barcode || barcode.length < MIN_BARCODE_LENGTH) return;
+    try {
+      const res = await getProductByBarcode(barcode);
+      if (res.data.success && res.data.data) {
+        const product = res.data.data;
+        const isBulk = BULK_TYPES.includes(product.sale_type);
+        if (isBulk) {
+          setBulkProduct(product);
+        } else {
+          if (addNormalToCartRef.current) addNormalToCartRef.current(product);
+          setSuccess(`✅ ${product.name} agregado al carrito`);
+          setTimeout(() => setSuccess(''), 2000);
+        }
+      } else {
+        setError(`⚠️ Producto con código "${barcode}" no encontrado`);
+        setTimeout(() => setError(''), 3000);
+      }
+    } catch {
+      setError(`⚠️ Producto con código "${barcode}" no encontrado`);
+      setTimeout(() => setError(''), 3000);
+    }
+    setSearchTerm('');
+    setShowSuggestions(false);
+  }, []); // uses ref for addNormalToCart to avoid stale closure
+
+  useEffect(() => {
+    const handleGlobalKeydown = (e) => {
+      // Only intercept if focus is NOT on a form input (except search)
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        if (document.activeElement !== searchInputRef.current) return;
+      }
+
+      if (e.key === 'Enter' && barcodeBuffer.length >= MIN_BARCODE_LENGTH) {
+        e.preventDefault();
+        handleBarcodeSearch(barcodeBuffer);
+        setBarcodeBuffer('');
+        if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
+        return;
+      }
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        setBarcodeBuffer(prev => prev + e.key);
+        if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
+        barcodeTimer.current = setTimeout(() => {
+          setBarcodeBuffer('');
+        }, BARCODE_BUFFER_TIMEOUT_MS);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeydown);
+      if (barcodeTimer.current) clearTimeout(barcodeTimer.current);
+    };
+  }, [barcodeBuffer, handleBarcodeSearch]);
 
   useEffect(() => {
     loadInitialData();
@@ -141,6 +226,8 @@ export default function PosPage() {
       return [...prev, { product_id: product.id, product_name: product.name, unit_price: parseFloat(product.unit_price), quantity: 1, cart_key: cartKey }];
     });
   };
+  // Keep ref up-to-date so barcode scanner callback always has current version
+  addNormalToCartRef.current = addNormalToCart;
 
   // --- Totals ---
   const subtotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
@@ -292,12 +379,53 @@ export default function PosPage() {
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Buscar productos..."
+              placeholder="Buscar por nombre o código de barras..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchTerm.trim().length >= MIN_BARCODE_LENGTH) {
+                  e.preventDefault();
+                  handleBarcodeSearch(searchTerm.trim());
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
               className="w-full pl-9 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm bg-white"
             />
+            {/* Autocomplete dropdown */}
+            {showSuggestions && searchSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-lg z-20 max-h-48 overflow-y-auto">
+                {searchSuggestions.map(product => {
+                  const isBulk = BULK_TYPES.includes(product.sale_type);
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onMouseDown={() => {
+                        setShowSuggestions(false);
+                        setSearchTerm('');
+                        if (isBulk) {
+                          setBulkProduct(product);
+                        } else {
+                          addNormalToCart(product);
+                          setSuccess(`✅ ${product.name} agregado`);
+                          setTimeout(() => setSuccess(''), 2000);
+                        }
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-green-50 border-b last:border-b-0 flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="font-semibold text-sm text-gray-800">{product.name}</div>
+                        {product.barcode && <div className="text-xs text-gray-400">{product.barcode}</div>}
+                      </div>
+                      <div className="text-green-600 font-bold text-sm">${parseFloat(product.unit_price).toFixed(2)}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

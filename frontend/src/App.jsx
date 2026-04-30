@@ -14,10 +14,12 @@ import SuppliersPage from './pages/SuppliersPage';
 import SettingsPage from './pages/SettingsPage';
 import POSPage from './pages/POSPage';
 import ProfitsPage from './pages/ProfitsPage';
+import { Menu } from 'lucide-react';
 
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -40,16 +42,43 @@ function AppContent() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar (fixed, takes space) */}
-      <div className="w-64 fixed left-0 top-0 h-screen z-40">
-        <Sidebar />
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Mobile overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (fixed, takes space on desktop; overlay on mobile) */}
+      <div
+        className={`fixed left-0 top-0 h-screen z-40 transition-transform duration-300
+          ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:static md:block`}
+      >
+        <Sidebar
+          onToggle={() => {}}
+        />
       </div>
 
-      {/* Main Content Area (offset by sidebar width) */}
-      <div className="ml-64 flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Navbar */}
-        <Navbar user={user} onLogout={handleLogout} />
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden md:ml-0">
+        {/* Mobile header with hamburger */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b md:hidden">
+          <button
+            onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
+          >
+            <Menu size={22} />
+          </button>
+          <span className="font-bold text-gray-800 text-lg">🍎 Frutera POS</span>
+        </div>
+
+        {/* Navbar (desktop) */}
+        <div className="hidden md:block">
+          <Navbar user={user} onLogout={handleLogout} />
+        </div>
 
         {/* Page Content */}
         <div className="flex-1 overflow-auto">

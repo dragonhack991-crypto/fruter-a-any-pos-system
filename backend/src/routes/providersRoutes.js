@@ -1,19 +1,22 @@
 import express from 'express';
-import { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from '../controllers/supplierController.js';
+import { getProviders, getProviderById, createProvider, updateProvider, deleteProvider } from '../controllers/providersController.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET - Obtener todos los proveedores
-router.get('/', authenticateToken, getSuppliers);
+router.get('/', authenticateToken, getProviders);
+
+// GET - Obtener proveedor por ID
+router.get('/:id', authenticateToken, getProviderById);
 
 // POST - Crear nuevo proveedor
-router.post('/', authenticateToken, authorizeRole(['admin', 'manager']), createSupplier);
+router.post('/', authenticateToken, authorizeRole(['admin', 'manager']), createProvider);
 
 // PUT - Actualizar proveedor
-router.put('/:id', authenticateToken, authorizeRole(['admin', 'manager']), updateSupplier);
+router.put('/:id', authenticateToken, authorizeRole(['admin', 'manager']), updateProvider);
 
-// DELETE - Eliminar proveedor
-router.delete('/:id', authenticateToken, authorizeRole(['admin']), deleteSupplier);
+// DELETE - Eliminar proveedor (soft delete)
+router.delete('/:id', authenticateToken, authorizeRole(['admin']), deleteProvider);
 
 export default router;
